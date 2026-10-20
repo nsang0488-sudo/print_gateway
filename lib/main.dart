@@ -61,6 +61,11 @@ class _MainScreenState extends State<MainScreen> {
   Map<String, ShiftLogModel> _shiftLogs = {};
   Map<String, MenuItemModel> _menuMap = {};
 
+  // Controllers for registration screen persistent state
+  final TextEditingController _regNameController = TextEditingController();
+  final TextEditingController _regPassController = TextEditingController();
+  final TextEditingController _regCodeController = TextEditingController();
+
   // Track printed items/tables to avoid duplicate prints
   final Set<String> _printedItemKeys = {};
 
@@ -165,6 +170,9 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    _regNameController.dispose();
+    _regPassController.dispose();
+    _regCodeController.dispose();
     _firebaseService.dispose();
     super.dispose();
   }
@@ -241,10 +249,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildRegistrationScreen() {
-    final nameController = TextEditingController();
-    final passController = TextEditingController();
-    final codeController = TextEditingController();
-
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F6),
       body: Center(
@@ -264,20 +268,20 @@ class _MainScreenState extends State<MainScreen> {
                 const SizedBox(height: 6),
                 const Text('Vui lòng nhập mã đăng ký do quản lý cấp để sử dụng hệ thống.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
                 const SizedBox(height: 20),
-                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Tên nhân viên (VD: Lan Anh)', border: OutlineInputBorder())),
+                TextField(controller: _regNameController, decoration: const InputDecoration(labelText: 'Tên nhân viên (VD: Lan Anh)', border: OutlineInputBorder())),
                 const SizedBox(height: 12),
-                TextField(controller: passController, obscureText: true, decoration: const InputDecoration(labelText: 'Tạo mật khẩu cá nhân', border: OutlineInputBorder())),
+                TextField(controller: _regPassController, obscureText: true, decoration: const InputDecoration(labelText: 'Tạo mật khẩu cá nhân', border: OutlineInputBorder())),
                 const SizedBox(height: 12),
-                TextField(controller: codeController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Mã đăng ký (5 số)', border: OutlineInputBorder())),
+                TextField(controller: _regCodeController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Mã đăng ký (5 số)', border: OutlineInputBorder())),
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5D3FD3), padding: const EdgeInsets.symmetric(vertical: 14)),
                     onPressed: () async {
-                      final name = nameController.text.trim();
-                      final pass = passController.text.trim();
-                      final code = codeController.text.trim();
+                      final name = _regNameController.text.trim();
+                      final pass = _regPassController.text.trim();
+                      final code = _regCodeController.text.trim();
 
                       if (name.isEmpty || pass.isEmpty || code.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng điền đầy đủ thông tin!')));
