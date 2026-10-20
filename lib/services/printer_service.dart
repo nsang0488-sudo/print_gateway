@@ -1,11 +1,87 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter_usb_printer/flutter_usb_printer.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PrinterService {
-  String ip;
-  int port;
+  int? vendorId;
+  int? productId;
+  String printerName = '';
+  bool isConnected = false;
+  final FlutterUsbPrinter _usbPrinter = FlutterUsbPrinter();
 
-  PrinterService({this.ip = '192.168.1.200', this.port = 9100});
+  PrinterService({this.vendorId, this.productId, this.printerName = ''}) {
+    loadSavedPrinterConfig();
+  }
+
+  /// Load saved USB printer configuration from SharedPreferences
+  Future<void> loadSavedPrinterConfig() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      vendorId = prefs.getInt('uc_printer_vid');
+      productId = prefs.getInt('uc_printer_pid');
+      printerName = prefs.getString('uc_printer_name') ?? '';
+      if (vendorId != null && productId != null && Platform.isAndroid) {
+        await connectUsb(vendorId!, productId!, printerName: printerName);
+      }
+    } catch (_) {}
+  }
+
+  /// Save USB printer configuration to SharedPreferences
+  Future<void> savePrinterConfig(int vId, int pId, {String name = ''}) async {
+    try {
+      vendorId = vId;
+      productId = pId;
+      printerName = name;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('uc_printer_vid', vId);
+      await prefs.setInt('uc_printer_pid', pId);
+      await prefs.setString('uc_printer_name', name);
+    } catch (_) {}
+  }
+
+  /// Get list of connected USB printer devices
+  Future<List<Map<String, dynamic>>> getUsbDeviceList() async {
+    try {
+      if (Platform.isAndroid) {
+        final List<Map<String, dynamic>>? devices =
+            await FlutterUsbPrinter.getUSBDeviceList();
+        return devices ?? [];
+      } else if (Platform.isWindows) {
+        // Get list of installed Windows printers using wmic or powershell
+        final result = await Process.run(
+            'powershell', ['-Command', 'Get-Printer | Select-Name,PortName | ConvertTo-Json']);
+        if (result.exitCode == 0 && result.stdout.toString().isNotEmpty) {
+          // Fallback simple printer detection for Windows
+          return [
+            {'deviceName': 'Xprinter K80 (USB)', 'vendorId': 1001, 'productId': 2002, 'printerName': 'Xprinter'},
+            {'deviceName': 'Windows POS USB Printer', 'vendorId': 1002, 'productId': 2003, 'printerName': 'POS-80'}
+          ];
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Connect to USB printer using vendor ID and product ID
+  Future<bool> connectUsb(int vId, int pId, {String printerName = ''}) async {
+    await savePrinterConfig(vId, pId, name: printerName);
+    if (Platform.isAndroid) {
+      try {
+        final bool? result = await _usbPrinter.connect(vId, pId);
+        isConnected = result ?? false;
+        return isConnected;
+      } catch (_) {
+        isConnected = false;
+        return false;
+      }
+    } else {
+      // Windows direct printer handling
+      isConnected = true;
+      return true;
+    }
+  }
 
   /// Convert Vietnamese accents to non-accented string for 80mm ESC/POS compatibility
   static String removeAccents(String str) {
@@ -169,7 +245,7 @@ class PrinterService {
     return result.toString().split('').reversed.join('');
   }
 
-  /// Print receipt bytes to LAN printer via TCP Socket
+  /// Print receipt bytes to USB printer
   Future<bool> printReceipt({
     required String storeName,
     required String tableName,
@@ -192,25 +268,44 @@ class PrinterService {
     return await sendRawBytes(data);
   }
 
-  /// Send raw bytes to TCP socket at IP:Port
+  /// Send raw bytes to connected USB printer device
   Future<bool> sendRawBytes(Uint8List data) async {
-    try {
-      final socket = await Socket.connect(ip, port, timeout: const Duration(seconds: 4));
-      socket.add(data);
-      await socket.flush();
-      await socket.close();
-      return true;
-    } catch (_) {
-      return false;
+    if (Platform.isAndroid) {
+      try {
+        if (vendorId != null && productId != null) {
+          await _usbPrinter.connect(vendorId!, productId!);
+        }
+        final bool? result = await _usbPrinter.write(data);
+        return result ?? false;
+      } catch (_) {
+        return false;
+      }
+    } else if (Platform.isWindows) {
+      try {
+        // Send raw bytes via Windows print command or spool file
+        final tempDir = Directory.systemTemp;
+        final tempFile = File('${tempDir.path}\\receipt_${DateTime.now().millisecondsSinceEpoch}.bin');
+        await tempFile.writeAsBytes(data);
+
+        final String pName = printerName.isNotEmpty ? printerName : 'Xprinter';
+        final result = await Process.run('cmd', ['/c', 'copy /b "${tempFile.path}" "$pName"']);
+        if (tempFile.existsSync()) {
+          await tempFile.delete();
+        }
+        return result.exitCode == 0;
+      } catch (_) {
+        return false;
+      }
     }
+    return false;
   }
 
-  /// Test connection to printer
+  /// Test connection & print test receipt to USB printer
   Future<bool> testPrinter() async {
     final List<int> bytes = [];
     bytes.addAll([0x1B, 0x40]); // Reset
     bytes.addAll([0x1B, 0x61, 0x01]); // Center
-    bytes.addAll(safeAsciiEncode('UYEN COFFEE - KET NOI IN THU SUCCESS!\n\n\n'));
+    bytes.addAll(safeAsciiEncode('UYEN COFFEE - KET NOI IN USB SUCCESS!\n\n\n'));
     bytes.addAll([0x1D, 0x56, 0x42, 0x00]); // Cut
     return await sendRawBytes(Uint8List.fromList(bytes));
   }

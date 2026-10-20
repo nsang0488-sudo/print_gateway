@@ -7,6 +7,9 @@ class FirebaseService {
   static const String databaseUrl =
       'https://uyencoffeepos-default-rtdb.asia-southeast1.firebasedatabase.app';
 
+  static const String googleSheetsScriptUrl =
+      'https://script.google.com/macros/s/AKfycby5W6tkb__SKAfpcUGXdDTjwKmWAS_vg02PM0993YcbNdrtQAqZZxK7FBbU0OM0Yht1/exec';
+
   Timer? _pollingTimer;
 
   // Stream controllers
@@ -182,6 +185,34 @@ class FirebaseService {
     final endStr = '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
     final dateStr = '${now.day}/${now.month}/${now.year}';
 
+    // Format bill details for Google Sheets
+    StringBuffer billDetails = StringBuffer();
+    if (shift.history.isNotEmpty) {
+      for (var bill in shift.history.values) {
+        for (var item in bill.items) {
+          final double subTotal = item.price * item.qty;
+          billDetails.writeln('${item.fName} x${item.qty}  ${subTotal.toInt()}đ');
+        }
+      }
+    } else {
+      billDetails.write('Không có đơn hàng');
+    }
+
+    final sheetsPayload = {
+      'ngayThang': dateStr,
+      'dienGiai': billDetails.toString().trim(),
+      'hinhThucThanhToan': 'TM: ${shift.revenueCash.toInt()}đ | CK: ${shift.revenueTransfer.toInt()}đ',
+      'soTien': shift.revenue,
+    };
+
+    try {
+      await http.post(
+        Uri.parse(googleSheetsScriptUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(sheetsPayload),
+      );
+    } catch (_) {}
+
     final shiftLog = {
       'start': shift.start,
       'end': endStr,
@@ -221,6 +252,57 @@ class FirebaseService {
       Uri.parse('$databaseUrl/.json'),
       body: json.encode(updates),
     );
+    _fetchData();
+  }
+
+  Future<void> deleteBillFromShift({
+    required String billKey,
+    required BillHistoryModel bill,
+    required ShiftModel shift,
+  }) async {
+    final isCash = bill.method == 'cash';
+    final double newRevenue = (shift.revenue - bill.total).clamp(0, double.infinity);
+    final double newCash = isCash ? (shift.revenueCash - bill.total).clamp(0, double.infinity) : shift.revenueCash;
+    final double newTransfer = !isCash ? (shift.revenueTransfer - bill.total).clamp(0, double.infinity) : shift.revenueTransfer;
+
+    Map<String, dynamic> updates = {
+      'active_shift/revenue': newRevenue,
+      'active_shift/revenueCash': newCash,
+      'active_shift/revenueTransfer': newTransfer,
+    };
+
+    await http.patch(Uri.parse('$databaseUrl/.json'), body: json.encode(updates));
+    await http.delete(Uri.parse('$databaseUrl/active_shift/history/$billKey.json'));
+    _fetchData();
+  }
+
+  Future<void> deleteItemFromBillInShift({
+    required String billKey,
+    required int itemIndex,
+    required BillHistoryModel bill,
+    required ShiftModel shift,
+  }) async {
+    if (itemIndex < 0 || itemIndex >= bill.items.length) return;
+
+    final item = bill.items[itemIndex];
+    final double subTotal = item.price * item.qty;
+    final isCash = bill.method == 'cash';
+
+    List<TableItemModel> updatedItems = List.from(bill.items)..removeAt(itemIndex);
+    final double newBillTotal = (bill.total - subTotal).clamp(0, double.infinity);
+    final double newRevenue = (shift.revenue - subTotal).clamp(0, double.infinity);
+    final double newCash = isCash ? (shift.revenueCash - subTotal).clamp(0, double.infinity) : shift.revenueCash;
+    final double newTransfer = !isCash ? (shift.revenueTransfer - subTotal).clamp(0, double.infinity) : shift.revenueTransfer;
+
+    Map<String, dynamic> updates = {
+      'active_shift/history/$billKey/items': updatedItems.map((e) => e.toJson()).toList(),
+      'active_shift/history/$billKey/total': newBillTotal,
+      'active_shift/revenue': newRevenue,
+      'active_shift/revenueCash': newCash,
+      'active_shift/revenueTransfer': newTransfer,
+    };
+
+    await http.patch(Uri.parse('$databaseUrl/.json'), body: json.encode(updates));
     _fetchData();
   }
 

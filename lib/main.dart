@@ -121,7 +121,7 @@ class _MainScreenState extends State<MainScreen> {
         if (!_printedItemKeys.contains(printKey)) {
           _printedItemKeys.add(printKey);
 
-          // Trigger print via TCP Socket
+          // Trigger print via USB Printer
           _printerService.printReceipt(
             storeName: 'UYÊN COFFEE',
             tableName: 'Bàn ${table.id}',
@@ -183,6 +183,14 @@ class _MainScreenState extends State<MainScreen> {
       return _buildRegistrationScreen();
     }
 
+    // Map BottomNavigationBar index (0: Bàn, 1: Cửa hàng) to Stack index (0, 2)
+    int bottomNavIndex = 0;
+    if (_currentTabIndex == 2) {
+      bottomNavIndex = 1;
+    } else if (_currentTabIndex == 1 || _currentTabIndex == 3) {
+      bottomNavIndex = 0;
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('UYÊN COFFEE', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF5D3FD3), letterSpacing: 1)),
@@ -222,6 +230,7 @@ class _MainScreenState extends State<MainScreen> {
             firebaseService: _firebaseService,
             activeShift: _activeShift,
             editLogs: _editLogs,
+            shiftLogs: _shiftLogs,
             menuMap: _menuMap,
           ),
           AdminView(
@@ -235,13 +244,16 @@ class _MainScreenState extends State<MainScreen> {
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentTabIndex > 2 ? 0 : _currentTabIndex,
+        currentIndex: bottomNavIndex,
         selectedItemColor: const Color(0xFF5D3FD3),
         unselectedItemColor: Colors.grey,
-        onTap: (index) => setState(() => _currentTabIndex = index),
+        onTap: (index) {
+          setState(() {
+            _currentTabIndex = index == 0 ? 0 : 2;
+          });
+        },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.table_restaurant), label: 'BÀN'),
-          BottomNavigationBarItem(icon: Icon(Icons.task), label: 'VIỆC'),
           BottomNavigationBarItem(icon: Icon(Icons.store), label: 'CỬA HÀNG'),
         ],
       ),

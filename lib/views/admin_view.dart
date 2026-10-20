@@ -29,14 +29,30 @@ class AdminView extends StatefulWidget {
 class _AdminViewState extends State<AdminView> {
   final currencyFormat = NumberFormat('#,###', 'vi_VN');
 
-  late TextEditingController _printerIpController;
   late TextEditingController _qrUrlController;
+  List<Map<String, dynamic>> _usbDevices = [];
+  bool _isLoadingDevices = false;
+  Map<String, dynamic>? _selectedUsbDevice;
 
   @override
   void initState() {
     super.initState();
-    _printerIpController = TextEditingController(text: widget.printerService.ip);
     _qrUrlController = TextEditingController(text: widget.qrUrl);
+    _scanUsbPrinters();
+  }
+
+  Future<void> _scanUsbPrinters() async {
+    setState(() => _isLoadingDevices = true);
+    final devices = await widget.printerService.getUsbDeviceList();
+    if (mounted) {
+      setState(() {
+        _usbDevices = devices;
+        _isLoadingDevices = false;
+        if (devices.isNotEmpty) {
+          _selectedUsbDevice = devices.first;
+        }
+      });
+    }
   }
 
   @override
@@ -46,10 +62,10 @@ class _AdminViewState extends State<AdminView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('⚙️ Khu Vực Quản Lý & Cài Đặt Máy Trạm In', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
+          const Text('⚙️ Khu Vực Quản Lý & Cài Đặt Máy Trạm In USB', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
           const SizedBox(height: 12),
 
-          // Printer LAN Socket Settings
+          // USB Printer Settings Card
           Card(
             color: Colors.blue.shade50,
             child: Padding(
@@ -57,27 +73,72 @@ class _AdminViewState extends State<AdminView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('🖨️ Cài Đặt Máy In LAN (TCP Socket Port 9100)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF5D3FD3))),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _printerIpController,
-                    decoration: const InputDecoration(
-                      labelText: 'IP Máy in LAN (Khổ K80 / 80mm)',
-                      hintText: 'VD: 192.168.1.200',
-                      border: OutlineInputBorder(),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('🖨️ Cài Đặt Máy In USB (Xprinter / POS K80)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF5D3FD3))),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Color(0xFF5D3FD3)),
+                        onPressed: _scanUsbPrinters,
+                        tooltip: 'Quét lại thiết bị USB',
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 8),
+                  if (_isLoadingDevices)
+                    const Center(child: CircularProgressIndicator())
+                  else if (_usbDevices.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'Không tìm thấy thiết bị máy in USB. Vui lòng cắm cáp USB máy in Xprinter vào máy tính / thiết bị và nhấn nút làm mới.',
+                        style: TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    )
+                  else
+                    DropdownButtonFormField<Map<String, dynamic>>(
+                      initialValue: _selectedUsbDevice,
+                      decoration: const InputDecoration(
+                        labelText: 'Chọn máy in USB',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _usbDevices.map((dev) {
+                        final name = dev['deviceName'] ?? dev['productName'] ?? 'USB Printer';
+                        final vendor = dev['vendorId'] ?? '';
+                        final product = dev['productId'] ?? '';
+                        return DropdownMenuItem(
+                          value: dev,
+                          child: Text('$name (VID: $vendor, PID: $product)'),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setState(() => _selectedUsbDevice = val);
+                      },
+                    ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5D3FD3)),
-                          onPressed: () {
-                            widget.printerService.ip = _printerIpController.text.trim();
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã lưu IP máy in: ${widget.printerService.ip}')));
+                          onPressed: () async {
+                            if (_selectedUsbDevice != null) {
+                              final int vId = int.tryParse(_selectedUsbDevice!['vendorId'].toString()) ?? 0;
+                              final int pId = int.tryParse(_selectedUsbDevice!['productId'].toString()) ?? 0;
+                              final success = await widget.printerService.connectUsb(vId, pId);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(success ? 'Kết nối máy in USB thành công!' : 'Kết nối máy in USB thất bại!'),
+                                    backgroundColor: success ? Colors.green : Colors.red,
+                                  ),
+                                );
+                              }
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chưa chọn máy in USB!')));
+                            }
                           },
-                          child: const Text('LƯU IP MÁY IN', style: TextStyle(color: Colors.white)),
+                          child: const Text('KẾT NỐI USB', style: TextStyle(color: Colors.white)),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -85,12 +146,16 @@ class _AdminViewState extends State<AdminView> {
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF28A745)),
                           onPressed: () async {
-                            widget.printerService.ip = _printerIpController.text.trim();
+                            if (_selectedUsbDevice != null) {
+                              final int vId = int.tryParse(_selectedUsbDevice!['vendorId'].toString()) ?? 0;
+                              final int pId = int.tryParse(_selectedUsbDevice!['productId'].toString()) ?? 0;
+                              await widget.printerService.connectUsb(vId, pId);
+                            }
                             final success = await widget.printerService.testPrinter();
-                            if (mounted) {
+                            if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(success ? 'In thử thành công! Mời kiểm tra giấy in.' : 'Không thể kết nối tới máy in LAN. Kiểm tra dây cáp/IP.'),
+                                  content: Text(success ? 'In thử qua USB thành công!' : 'Không thể gửi lệnh in tới máy in USB. Kiểm tra lại kết nối cáp USB.'),
                                   backgroundColor: success ? Colors.green : Colors.red,
                                 ),
                               );
