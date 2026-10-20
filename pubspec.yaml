@@ -14,7 +14,8 @@ dependencies:
   shared_preferences: ^2.2.2
   intl: ^0.19.0
   http: ^1.2.0
-  flutter_usb_printer: ^0.1.0+1
+  flutter_usb_printer:
+    path: packages/flutter_usb_printer
 
 dev_dependencies:
   flutter_test:
