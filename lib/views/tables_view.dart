@@ -749,7 +749,7 @@ class _TablesViewState extends State<TablesView> {
                         price: item.price,
                         qty: qty,
                         done: item.done,
-                          note: updatedNote.isNotEmpty ? updatedNote : null,
+                        note: updatedNote.isNotEmpty ? updatedNote : null,
                         orderStaff: item.orderStaff,
                       );
                     }
@@ -762,7 +762,9 @@ class _TablesViewState extends State<TablesView> {
                       });
                     }
 
-                    Navigator.pop(dialogContext);
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                    }
                   },
                   child: const Text('LƯU', style: TextStyle(color: Colors.white)),
                 ),
@@ -894,8 +896,12 @@ class _TablesViewState extends State<TablesView> {
                     );
 
                     widget.firebaseService.removeTable(table.id);
-                    Navigator.pop(dialogContext);
-                    setState(() => _selectedTableId = null);
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                    }
+                    if (mounted) {
+                      setState(() => _selectedTableId = null);
+                    }
                   },
                   child: const Text('HOÀN TẤT', style: TextStyle(color: Colors.white)),
                 ),
@@ -922,7 +928,9 @@ class _TablesViewState extends State<TablesView> {
     ));
 
     widget.firebaseService.removeTable(table.id);
-    setState(() => _selectedTableId = null);
+    if (mounted) {
+      setState(() => _selectedTableId = null);
+    }
   }
 
   void _openMoveTableModal(TableModel currentTable, Map<int, TableModel> allTables) {

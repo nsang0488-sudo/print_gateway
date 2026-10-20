@@ -45,9 +45,9 @@ class PrinterService {
   Future<List<Map<String, dynamic>>> getUsbDeviceList() async {
     try {
       if (Platform.isAndroid) {
-        final List<Map<String, dynamic>>? devices =
+        final List<Map<String, dynamic>> devices =
             await FlutterUsbPrinter.getUSBDeviceList();
-        return devices ?? [];
+        return devices;
       } else if (Platform.isWindows) {
         // Get list of installed Windows printers using wmic or powershell
         final result = await Process.run(
