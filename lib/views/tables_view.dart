@@ -679,7 +679,7 @@ class _TablesViewState extends State<TablesView> {
   void _openItemQtyModal(TableModel table, int index) {
     final item = table.items[index];
     int qty = item.qty;
-    String note = item.note ?? '';
+    final noteController = TextEditingController(text: item.note ?? '');
 
     showDialog(
       context: context,
@@ -712,9 +712,8 @@ class _TablesViewState extends State<TablesView> {
                   ),
                   const SizedBox(height: 10),
                   TextField(
-                    controller: TextEditingController(text: note),
+                    controller: noteController,
                     decoration: const InputDecoration(hintText: 'Ghi chú món...'),
-                    onChanged: (v) => note = v,
                   ),
                 ],
               ),
@@ -726,6 +725,7 @@ class _TablesViewState extends State<TablesView> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5D3FD3)),
                   onPressed: () async {
+                      final updatedNote = noteController.text.trim();
                     if (qty < item.qty) {
                       final reason = await _promptReason('Nhập lý do giảm/xóa món ${item.fName}:');
                       if (reason == null || reason.isEmpty) return;
@@ -749,7 +749,7 @@ class _TablesViewState extends State<TablesView> {
                         price: item.price,
                         qty: qty,
                         done: item.done,
-                        note: note,
+                          note: updatedNote.isNotEmpty ? updatedNote : null,
                         orderStaff: item.orderStaff,
                       );
                     }
