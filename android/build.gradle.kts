@@ -25,10 +25,6 @@ subprojects {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
-    tasks.withType(JavaCompile::class.java).configureEach {
-        sourceCompatibility = "17"
-        targetCompatibility = "17"
-    }
 }
 
 subprojects {
@@ -42,7 +38,7 @@ subprojects {
 }
 
 subprojects {
-    plugins.withId("com.android.library") {
+    project.plugins.withId("com.android.library") {
         val androidExtension = project.extensions.findByName("android")
         if (androidExtension != null) {
             val getNamespace = androidExtension.javaClass.getMethod("getNamespace")
@@ -61,16 +57,6 @@ subprojects {
                     setNamespace.invoke(androidExtension, "com.example.${project.name.replace("-", "_")}")
                 }
             }
-            val compileOptions = androidExtension.javaClass.getMethod("getCompileOptions").invoke(androidExtension)
-            if (compileOptions != null) {
-                compileOptions.javaClass.getMethod("setSourceCompatibility", JavaVersion::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
-                compileOptions.javaClass.getMethod("setTargetCompatibility", JavaVersion::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
-            }
-        }
-    }
-    plugins.withId("com.android.application") {
-        val androidExtension = project.extensions.findByName("android")
-        if (androidExtension != null) {
             val compileOptions = androidExtension.javaClass.getMethod("getCompileOptions").invoke(androidExtension)
             if (compileOptions != null) {
                 compileOptions.javaClass.getMethod("setSourceCompatibility", JavaVersion::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
