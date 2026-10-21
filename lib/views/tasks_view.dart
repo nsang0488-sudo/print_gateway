@@ -83,7 +83,7 @@ class _TasksViewState extends State<TasksView> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    initialValue: _selectedEmployeeKey,
+                    value: _selectedEmployeeKey,
                     decoration: const InputDecoration(border: OutlineInputBorder()),
                     items: deviceKeys.map((key) {
                       final dev = widget.devices[key]!;
@@ -118,7 +118,7 @@ class _TasksViewState extends State<TasksView> {
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<int>(
-                    initialValue: _frequency,
+                    value: _frequency,
                     decoration: const InputDecoration(border: OutlineInputBorder()),
                     items: const [
                       DropdownMenuItem(value: 0, child: Text('Tần suất: Một lần (Không lặp lại)')),
