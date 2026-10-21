@@ -49,6 +49,21 @@ subprojects {
                     setNamespace.invoke(androidExtension, "com.example.${project.name.replace("-", "_")}")
                 }
             }
+            val compileOptions = androidExtension.javaClass.getMethod("getCompileOptions").invoke(androidExtension)
+            if (compileOptions != null) {
+                compileOptions.javaClass.getMethod("setSourceCompatibility", JavaVersion::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
+                compileOptions.javaClass.getMethod("setTargetCompatibility", JavaVersion::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
+            }
+        }
+    }
+    project.plugins.withId("com.android.application") {
+        val androidExtension = project.extensions.findByName("android")
+        if (androidExtension != null) {
+            val compileOptions = androidExtension.javaClass.getMethod("getCompileOptions").invoke(androidExtension)
+            if (compileOptions != null) {
+                compileOptions.javaClass.getMethod("setSourceCompatibility", JavaVersion::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
+                compileOptions.javaClass.getMethod("setTargetCompatibility", JavaVersion::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
+            }
         }
     }
 }
