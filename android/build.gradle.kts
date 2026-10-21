@@ -20,16 +20,6 @@ subprojects {
 }
 
 subprojects {
-    buildscript {
-        configurations.all {
-            resolutionStrategy {
-                force("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0")
-            }
-        }
-    }
-}
-
-subprojects {
     project.plugins.withId("com.android.library") {
         val androidExtension = project.extensions.findByName("android")
         if (androidExtension != null) {
@@ -49,31 +39,25 @@ subprojects {
                     setNamespace.invoke(androidExtension, "com.example.${project.name.replace("-", "_")}")
                 }
             }
-            val compileOptions = androidExtension.javaClass.getMethod("getCompileOptions").invoke(androidExtension)
-            if (compileOptions != null) {
-                compileOptions.javaClass.getMethod("setSourceCompatibility", JavaVersion::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
-                compileOptions.javaClass.getMethod("setTargetCompatibility", JavaVersion::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
-            }
-        }
-    }
-    project.plugins.withId("com.android.application") {
-        val androidExtension = project.extensions.findByName("android")
-        if (androidExtension != null) {
-            val compileOptions = androidExtension.javaClass.getMethod("getCompileOptions").invoke(androidExtension)
-            if (compileOptions != null) {
-                compileOptions.javaClass.getMethod("setSourceCompatibility", JavaVersion::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
-                compileOptions.javaClass.getMethod("setTargetCompatibility", JavaVersion::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
-            }
         }
     }
 }
 
 subprojects {
+    project.configurations.all {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.jetbrains.kotlin") {
+                useVersion("1.8.22")
+            }
+        }
+    }
+
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
         kotlinOptions {
             jvmTarget = "17"
         }
     }
+
     tasks.withType<JavaCompile>().configureEach {
         sourceCompatibility = JavaVersion.VERSION_17.toString()
         targetCompatibility = JavaVersion.VERSION_17.toString()
