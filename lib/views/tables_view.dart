@@ -218,7 +218,7 @@ class _TablesViewState extends State<TablesView> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 decoration: BoxDecoration(
-                  color: table.needsServing ? const Color(0xFFDC3545) : Colors.white.withValues(alpha: 0.7),
+                  color: table.needsServing ? const Color(0xFFDC3545) : Colors.white.withOpacity(0.7),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
                     color: table.needsServing ? Colors.transparent : Colors.grey.shade300,
@@ -966,7 +966,7 @@ class _TablesViewState extends State<TablesView> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
-                    initialValue: targetTableId,
+                    value: targetTableId,
                     decoration: const InputDecoration(labelText: 'Đến bàn', border: OutlineInputBorder()),
                     items: List.generate(40, (index) => index + 1)
                         .where((id) => id != currentTable.id)

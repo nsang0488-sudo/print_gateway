@@ -97,7 +97,7 @@ class _AdminViewState extends State<AdminView> {
                     )
                   else
                     DropdownButtonFormField<Map<String, dynamic>>(
-                      initialValue: _selectedUsbDevice,
+                      value: _selectedUsbDevice,
                       decoration: const InputDecoration(
                         labelText: 'Chọn máy in USB',
                         border: OutlineInputBorder(),
