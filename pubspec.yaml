@@ -10,13 +10,20 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_pos_printer_platform: ^1.0.8
-  esc_pos_utils_plus: ^2.0.4
+  flutter_pos_printer_platform: 1.0.8
+  esc_pos_utils_plus: ^2.0.1+6
+  shared_preferences: ^2.2.2
+  http: ^1.1.0
+  intl: ^0.18.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+
+dependency_overrides:
+  flutter_star_prnt:
+    path: plugins/flutter_star_prnt
 
 flutter:
   uses-material-design: true
