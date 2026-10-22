@@ -10,11 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
-  shared_preferences: ^2.2.2
-  intl: ^0.19.0
-  http: ^1.2.0
-  flutter_usb_printer: ^0.1.0+1
+  flutter_pos_printer_platform: ^1.0.8
+  esc_pos_utils_plus: ^2.0.4
 
 dev_dependencies:
   flutter_test:

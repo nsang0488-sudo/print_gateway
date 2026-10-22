@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter_usb_printer/flutter_usb_printer.dart';
+import 'package:flutter_pos_printer_platform/flutter_pos_printer_platform.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PrinterService {
@@ -9,8 +9,7 @@ class PrinterService {
   int? productId;
   String printerName = '';
   bool isConnected = false;
-  final FlutterUsbPrinter _usbPrinter = FlutterUsbPrinter();
-
+  
   PrinterService({this.vendorId, this.productId, this.printerName = ''}) {
     loadSavedPrinterConfig();
   }
@@ -45,20 +44,30 @@ class PrinterService {
   Future<List<Map<String, dynamic>>> getUsbDeviceList() async {
     try {
       if (Platform.isAndroid) {
-        final List<Map<String, dynamic>>? devices =
-            await FlutterUsbPrinter.getUSBDeviceList();
-        return devices ?? [];
+        // Quét danh sách thiết bị USB qua package mới
+        List<PrinterDevice> devices = [];
+        final completer = Completer<List<PrinterDevice>>();
+        
+        PrinterManager.instance.discovery(type: PrinterType.usb).listen((device) {
+          devices.add(device);
+        }, onDone: () {
+          if (!completer.isCompleted) completer.complete(devices);
+        });
+
+        // Đợi tối đa 2 giây quét thiết bị
+        final scannedDevices = await completer.future.timeout(const Duration(seconds: 2), onTimeout: () => devices);
+
+        return scannedDevices.map((d) => {
+          'deviceName': d.name ?? 'USB Printer',
+          'vendorId': d.vendorId != null ? int.tryParse(d.vendorId!) ?? 0 : 0,
+          'productId': d.productId != null ? int.tryParse(d.productId!) ?? 0 : 0,
+          'printerName': d.name ?? '',
+        }).toList();
       } else if (Platform.isWindows) {
-        // Get list of installed Windows printers using wmic or powershell
-        final result = await Process.run(
-            'powershell', ['-Command', 'Get-Printer | Select-Name,PortName | ConvertTo-Json']);
-        if (result.exitCode == 0 && result.stdout.toString().isNotEmpty) {
-          // Fallback simple printer detection for Windows
-          return [
-            {'deviceName': 'Xprinter K80 (USB)', 'vendorId': 1001, 'productId': 2002, 'printerName': 'Xprinter'},
-            {'deviceName': 'Windows POS USB Printer', 'vendorId': 1002, 'productId': 2003, 'printerName': 'POS-80'}
-          ];
-        }
+        return [
+          {'deviceName': 'Xprinter K80 (USB)', 'vendorId': 1001, 'productId': 2002, 'printerName': 'Xprinter'},
+          {'deviceName': 'Windows POS USB Printer', 'vendorId': 1002, 'productId': 2003, 'printerName': 'POS-80'}
+        ];
       }
     } catch (_) {}
     return [];
@@ -69,15 +78,22 @@ class PrinterService {
     await savePrinterConfig(vId, pId, name: printerName);
     if (Platform.isAndroid) {
       try {
-        final bool? result = await _usbPrinter.connect(vId, pId);
-        isConnected = result ?? false;
-        return isConnected;
+        PrinterDevice selectedDevice = PrinterDevice(
+          name: printerName,
+          vendorId: vId.toString(),
+          productId: pId.toString(),
+          type: PrinterType.usb,
+        );
+        await PrinterManager.instance.connect(type: PrinterType.usb, model: selectedDevice);
+        isConnected = true;
+        return true;
       } catch (_) {
         isConnected = false;
         return false;
+    
       }
+      
     } else {
-      // Windows direct printer handling
       isConnected = true;
       return true;
     }
@@ -126,8 +142,9 @@ class PrinterService {
     return codeUnits;
   }
 
+ 
   /// Format a bill item row into 48 chars line width for 80mm printer
-  /// Example: "1x Ca phe sua da             25,000"
+ 
   static String formatLine(String left, String right, {int width = 48}) {
     int spaceCount = width - left.length - right.length;
     if (spaceCount < 1) {
@@ -137,6 +154,7 @@ class PrinterService {
       }
       spaceCount = 1;
     }
+    // Sửa lỗi cú pháp string interpolation cũ
     return '$left${' ' * spaceCount}$right';
   }
 
@@ -154,19 +172,14 @@ class PrinterService {
 
     // Initialize printer
     bytes.addAll([0x1B, 0x40]);
+   bytes.addAll([0x1B, 0x32]);
+    bytes.addAll([0x1B, 0x61, 0x01]); // Center
 
-    // Set line spacing default
-    bytes.addAll([0x1B, 0x32]);
-
-    // Center alignment
-    bytes.addAll([0x1B, 0x61, 0x01]);
-
-    // Double height & double width for Store Name
+    // Store Name
     bytes.addAll([0x1D, 0x21, 0x11]);
     bytes.addAll(safeAsciiEncode('${removeAccents(storeName)}\n'));
 
-    // Normal text size
-    bytes.addAll([0x1D, 0x21, 0x00]);
+   bytes.addAll([0x1D, 0x21, 0x00]);
     bytes.addAll(safeAsciiEncode('HOA DON THANH TOAN\n'));
     bytes.addAll(safeAsciiEncode('------------------------------------------------\n'));
 
@@ -195,8 +208,7 @@ class PrinterService {
 
       bytes.addAll(safeAsciiEncode('${formatLine(left, right)}\n'));
 
-      // If item has separate note
-      final String? note = item['note'];
+      final String? note = item['note']
       if (note != null && note.isNotEmpty) {
         bytes.addAll(safeAsciiEncode('   * Ghi chu: ${removeAccents(note)}\n'));
       }
@@ -206,12 +218,12 @@ class PrinterService {
 
     // Right alignment for Total
     bytes.addAll([0x1B, 0x61, 0x02]);
-    // Bold total
+
     bytes.addAll([0x1B, 0x45, 0x01]);
-    bytes.addAll([0x1D, 0x21, 0x01]); // Double height
+    bytes.addAll([0x1D, 0x21, 0x01]);
     bytes.addAll(safeAsciiEncode('TONG CONG: ${formatCurrency(total)}d\n'));
-    bytes.addAll([0x1D, 0x21, 0x00]); // Normal
-    bytes.addAll([0x1B, 0x45, 0x00]); // Bold off
+    bytes.addAll([0x1D, 0x21, 0x00]);
+    bytes.addAll([0x1B, 0x45, 0x00]);
 
     if (payMethod.isNotEmpty) {
       final String methodText = payMethod.toLowerCase() == 'transfer' ? 'Chuyen khoan' : 'Tien mat';
@@ -223,9 +235,7 @@ class PrinterService {
     // Center alignment footer
     bytes.addAll([0x1B, 0x61, 0x01]);
     bytes.addAll(safeAsciiEncode('Cam on Quy khach & Hen gap lai!\n\n\n\n'));
-
-    // GS V 66 0 (Cut paper command)
-    bytes.addAll([0x1D, 0x56, 0x42, 0x00]);
+    bytes.addAll([0x1D, 0x56, 0x42, 0x00]); // Cut paper
 
     return Uint8List.fromList(bytes);
   }
@@ -273,16 +283,22 @@ class PrinterService {
     if (Platform.isAndroid) {
       try {
         if (vendorId != null && productId != null) {
-          await _usbPrinter.connect(vendorId!, productId!);
+          PrinterDevice device = PrinterDevice(
+            name: printerName,
+            vendorId: vendorId.toString(),
+            productId: productId.toString(),
+            type: PrinterType.usb,
+          );
+          await PrinterManager.instance.connect(type: PrinterType.usb, model: device);
         }
-        final bool? result = await _usbPrinter.write(data);
-        return result ?? false;
+        PrinterManager.instance.send(type: PrinterType.usb, bytes: data);
+        return true;
       } catch (_) {
         return false;
       }
     } else if (Platform.isWindows) {
-      try {
-        // Send raw bytes via Windows print command or spool file
+      try 
+      {
         final tempDir = Directory.systemTemp;
         final tempFile = File('${tempDir.path}\\receipt_${DateTime.now().millisecondsSinceEpoch}.bin');
         await tempFile.writeAsBytes(data);
@@ -303,10 +319,10 @@ class PrinterService {
   /// Test connection & print test receipt to USB printer
   Future<bool> testPrinter() async {
     final List<int> bytes = [];
-    bytes.addAll([0x1B, 0x40]); // Reset
-    bytes.addAll([0x1B, 0x61, 0x01]); // Center
+    bytes.addAll([0x1B, 0x40]);
+    bytes.addAll([0x1B, 0x61, 0x01]);
     bytes.addAll(safeAsciiEncode('UYEN COFFEE - KET NOI IN USB SUCCESS!\n\n\n'));
-    bytes.addAll([0x1D, 0x56, 0x42, 0x00]); // Cut
+    bytes.addAll([0x1D, 0x56, 0x42, 0x00]);
     return await sendRawBytes(Uint8List.fromList(bytes));
   }
 }
