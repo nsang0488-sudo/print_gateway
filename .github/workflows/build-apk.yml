@@ -24,21 +24,13 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.x'
+          flutter-version: '3.22.x'
           channel: 'stable'
           cache: false
 
       - name: Install dependencies
-        run: flutter pub get
-
-      - name: Run Doctor & Analyze
-        run: flutter doctor
+        run: flutter pub get --no-example
 
       - name: Build Debug APK
         run: flutter build apk --debug --no-pub
-
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+        
