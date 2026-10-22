@@ -26,16 +26,16 @@ jobs:
         with:
           flutter-version: '3.19.x'
           channel: 'stable'
-          cache: true
-
-      - name: Clean build cache
-        run: flutter clean
+          cache: false
 
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Run Doctor & Analyze
+        run: flutter doctor
+
       - name: Build Debug APK
-        run: flutter build apk --debug
+        run: flutter build apk --debug --no-pub
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
