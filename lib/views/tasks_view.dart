@@ -319,8 +319,12 @@ class _TasksViewState extends State<TasksView> {
                       await widget.firebaseService.addTask(_selectedEmployeeKey!, task);
                       await widget.firebaseService.deleteTask(sourceId!, task.id);
                     }
-                    Navigator.pop(dialogContext);
-                    setState(() {});
+                    if (mounted && dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                    }
+                    if (mounted) {
+                      setState(() {});
+                    }
                   },
                   child: const Text('XÁC NHẬN CHUYỂN'),
                 ),

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter_pos_printer_platform/flutter_pos_printer_platform.dart';
+import 'package:flutter_usb_printer/flutter_usb_printer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PrinterService {
@@ -9,7 +9,8 @@ class PrinterService {
   int? productId;
   String printerName = '';
   bool isConnected = false;
-  
+  final FlutterUsbPrinter _flutterUsbPrinter = FlutterUsbPrinter();
+
   PrinterService({this.vendorId, this.productId, this.printerName = ''}) {
     loadSavedPrinterConfig();
   }
@@ -44,24 +45,12 @@ class PrinterService {
   Future<List<Map<String, dynamic>>> getUsbDeviceList() async {
     try {
       if (Platform.isAndroid) {
-        // Quét danh sách thiết bị USB qua package mới
-        List<PrinterDevice> devices = [];
-        final completer = Completer<List<PrinterDevice>>();
-        
-        PrinterManager.instance.discovery(type: PrinterType.usb).listen((device) {
-          devices.add(device);
-        }, onDone: () {
-          if (!completer.isCompleted) completer.complete(devices);
-        });
-
-        // Đợi tối đa 2 giây quét thiết bị
-        final scannedDevices = await completer.future.timeout(const Duration(seconds: 2), onTimeout: () => devices);
-
-        return scannedDevices.map((d) => {
-          'deviceName': d.name ?? 'USB Printer',
-          'vendorId': d.vendorId != null ? int.tryParse(d.vendorId!) ?? 0 : 0,
-          'productId': d.productId != null ? int.tryParse(d.productId!) ?? 0 : 0,
-          'printerName': d.name ?? '',
+        final List<Map<String, dynamic>> results = await FlutterUsbPrinter.getUSBDeviceList();
+        return results.map((d) => {
+          'deviceName': d['deviceName'] ?? d['productName'] ?? 'USB Printer',
+          'vendorId': d['vendorId'] != null ? int.tryParse(d['vendorId'].toString()) ?? 0 : 0,
+          'productId': d['productId'] != null ? int.tryParse(d['productId'].toString()) ?? 0 : 0,
+          'printerName': d['productName'] ?? d['deviceName'] ?? '',
         }).toList();
       } else if (Platform.isWindows) {
         return [
@@ -78,21 +67,13 @@ class PrinterService {
     await savePrinterConfig(vId, pId, name: printerName);
     if (Platform.isAndroid) {
       try {
-        PrinterDevice selectedDevice = PrinterDevice(
-          name: printerName,
-          vendorId: vId.toString(),
-          productId: pId.toString(),
-          type: PrinterType.usb,
-        );
-        await PrinterManager.instance.connect(type: PrinterType.usb, model: selectedDevice);
-        isConnected = true;
-        return true;
+        final bool? res = await _flutterUsbPrinter.connect(vId, pId);
+        isConnected = res == true;
+        return isConnected;
       } catch (_) {
         isConnected = false;
         return false;
-    
       }
-      
     } else {
       isConnected = true;
       return true;
@@ -142,9 +123,7 @@ class PrinterService {
     return codeUnits;
   }
 
- 
   /// Format a bill item row into 48 chars line width for 80mm printer
- 
   static String formatLine(String left, String right, {int width = 48}) {
     int spaceCount = width - left.length - right.length;
     if (spaceCount < 1) {
@@ -154,7 +133,6 @@ class PrinterService {
       }
       spaceCount = 1;
     }
-    // Sửa lỗi cú pháp string interpolation cũ
     return '$left${' ' * spaceCount}$right';
   }
 
@@ -172,14 +150,14 @@ class PrinterService {
 
     // Initialize printer
     bytes.addAll([0x1B, 0x40]);
-   bytes.addAll([0x1B, 0x32]);
+    bytes.addAll([0x1B, 0x32]);
     bytes.addAll([0x1B, 0x61, 0x01]); // Center
 
     // Store Name
     bytes.addAll([0x1D, 0x21, 0x11]);
     bytes.addAll(safeAsciiEncode('${removeAccents(storeName)}\n'));
 
-   bytes.addAll([0x1D, 0x21, 0x00]);
+    bytes.addAll([0x1D, 0x21, 0x00]);
     bytes.addAll(safeAsciiEncode('HOA DON THANH TOAN\n'));
     bytes.addAll(safeAsciiEncode('------------------------------------------------\n'));
 
@@ -208,7 +186,7 @@ class PrinterService {
 
       bytes.addAll(safeAsciiEncode('${formatLine(left, right)}\n'));
 
-      final String? note = item['note']
+      final String? note = item['note'];
       if (note != null && note.isNotEmpty) {
         bytes.addAll(safeAsciiEncode('   * Ghi chu: ${removeAccents(note)}\n'));
       }
@@ -283,22 +261,15 @@ class PrinterService {
     if (Platform.isAndroid) {
       try {
         if (vendorId != null && productId != null) {
-          PrinterDevice device = PrinterDevice(
-            name: printerName,
-            vendorId: vendorId.toString(),
-            productId: productId.toString(),
-            type: PrinterType.usb,
-          );
-          await PrinterManager.instance.connect(type: PrinterType.usb, model: device);
+          await _flutterUsbPrinter.connect(vendorId!, productId!);
         }
-        PrinterManager.instance.send(type: PrinterType.usb, bytes: data);
+        await _flutterUsbPrinter.write(data);
         return true;
       } catch (_) {
         return false;
       }
     } else if (Platform.isWindows) {
-      try 
-      {
+      try {
         final tempDir = Directory.systemTemp;
         final tempFile = File('${tempDir.path}\\receipt_${DateTime.now().millisecondsSinceEpoch}.bin');
         await tempFile.writeAsBytes(data);
