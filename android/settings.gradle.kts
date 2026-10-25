@@ -19,8 +19,14 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "9.1.0" apply false
-    id("org.jetbrains.kotlin.android") version "2.4.0" apply false
+    id("com.android.application") version "8.2.1" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+}
+
+gradle.beforeProject {
+    buildscript.configurations.all {
+        resolutionStrategy.force("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
+    }
 }
 
 include(":app")

@@ -58,10 +58,10 @@ class PrinterService {
         final scannedDevices = await completer.future.timeout(const Duration(seconds: 2), onTimeout: () => devices);
 
         return scannedDevices.map((d) => {
-          'deviceName': d.name ?? 'USB Printer',
-          'vendorId': d.vendorId != null ? int.tryParse(d.vendorId!) ?? 0 : 0,
-          'productId': d.productId != null ? int.tryParse(d.productId!) ?? 0 : 0,
-          'printerName': d.name ?? '',
+          'deviceName': d.name.isNotEmpty ? d.name : 'USB Printer',
+          'vendorId': int.tryParse(d.vendorId ?? '') ?? 0,
+          'productId': int.tryParse(d.productId ?? '') ?? 0,
+          'printerName': d.name,
         }).toList();
       } else if (Platform.isWindows) {
         return [
@@ -78,11 +78,10 @@ class PrinterService {
     await savePrinterConfig(vId, pId, name: printerName);
     if (Platform.isAndroid) {
       try {
-        PrinterDevice selectedDevice = PrinterDevice(
+        UsbPrinterInput selectedDevice = UsbPrinterInput(
           name: printerName,
           vendorId: vId.toString(),
           productId: pId.toString(),
-          type: PrinterType.usb,
         );
         await PrinterManager.instance.connect(type: PrinterType.usb, model: selectedDevice);
         isConnected = true;
@@ -208,7 +207,7 @@ class PrinterService {
 
       bytes.addAll(safeAsciiEncode('${formatLine(left, right)}\n'));
 
-      final String? note = item['note']
+      final String? note = item['note'];
       if (note != null && note.isNotEmpty) {
         bytes.addAll(safeAsciiEncode('   * Ghi chu: ${removeAccents(note)}\n'));
       }
@@ -283,11 +282,10 @@ class PrinterService {
     if (Platform.isAndroid) {
       try {
         if (vendorId != null && productId != null) {
-          PrinterDevice device = PrinterDevice(
+          UsbPrinterInput device = UsbPrinterInput(
             name: printerName,
             vendorId: vendorId.toString(),
             productId: productId.toString(),
-            type: PrinterType.usb,
           );
           await PrinterManager.instance.connect(type: PrinterType.usb, model: device);
         }
