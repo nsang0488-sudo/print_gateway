@@ -44,27 +44,26 @@ subprojects {
 }
 
 subprojects {
-    // Tự động gán namespace cho các plugin cũ như flutter_usb_printer
+    // Tự động gán namespace và cấu hình Java 17 cho các thư viện Android cũ (như flutter_usb_printer)
     plugins.withId("com.android.library") {
-        val androidExt = extensions.findByType(com.android.build.gradle.LibraryExtension::class.java)
-        if (androidExt != null && androidExt.namespace == null) {
-            androidExt.namespace = "com.example.plugin.${project.name.replace('-', '_')}"
-        }
-        // Ép dùng Java 17 cho thư viện
-        androidExt?.compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_17
-            targetCompatibility = JavaVersion.VERSION_17
+        extensions.configure<com.android.build.gradle.LibraryExtension> {
+            if (namespace == null) {
+                namespace = "com.example.plugin.${project.name.replace('-', '_')}"
+            }
+            compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_17
+                targetCompatibility = JavaVersion.VERSION_17
+            }
         }
     }
+
+    // Cấu hình Java 17 cho ứng dụng Android
     plugins.withId("com.android.application") {
-        val androidExt = extensions.findByType(com.android.build.gradle.AppExtension::class.java)
-        if (androidExt != null && androidExt.namespace == null) {
-            androidExt.namespace = "com.example.plugin.${project.name.replace('-', '_')}"
-        }
-        // Ép dùng Java 17 cho app
-        androidExt?.compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_17
-            targetCompatibility = JavaVersion.VERSION_17
+        extensions.configure<com.android.build.gradle.AppExtension> {
+            compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_17
+                targetCompatibility = JavaVersion.VERSION_17
+            }
         }
     }
     
