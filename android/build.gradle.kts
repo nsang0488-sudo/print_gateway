@@ -20,20 +20,16 @@ subprojects {
 }
 
 subprojects {
-    val configureNamespace: (Project) -> Unit = { p ->
-        if (p.plugins.hasPlugin("com.android.library") || p.plugins.hasPlugin("com.android.application")) {
-            val androidExt = p.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
-            if (androidExt != null && androidExt.namespace == null) {
-                androidExt.namespace = "com.example.plugin.${p.name.replace('-', '_')}"
-            }
+    plugins.withId("com.android.library") {
+        val androidExt = extensions.findByType(com.android.build.gradle.LibraryExtension::class.java)
+        if (androidExt != null && androidExt.namespace == null) {
+            androidExt.namespace = "com.example.plugin.${project.name.replace('-', '_')}"
         }
     }
-
-    if (state.executed) {
-        configureNamespace(this)
-    } else {
-        afterEvaluate {
-            configureNamespace(this)
+    plugins.withId("com.android.application") {
+        val androidExt = extensions.findByType(com.android.build.gradle.AppExtension::class.java)
+        if (androidExt != null && androidExt.namespace == null) {
+            androidExt.namespace = "com.example.plugin.${project.name.replace('-', '_')}"
         }
     }
 }
