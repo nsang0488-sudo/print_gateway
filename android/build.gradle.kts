@@ -1,7 +1,25 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
+    }
+}
+
 allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+    configurations.all {
+        resolutionStrategy {
+            force("org.jetbrains.kotlin:kotlin-stdlib:1.9.24")
+            force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24")
+            force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24")
+            force("org.jetbrains.kotlin:kotlin-stdlib-common:1.9.24")
+        }
     }
 }
 
