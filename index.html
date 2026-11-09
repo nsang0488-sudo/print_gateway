@@ -113,7 +113,6 @@
         .qr-image-display { width: 100%; max-width: 200px; margin: 15px auto; display: none; border-radius: 10px; }
         .detail-item { display: flex; justify-content: space-between; font-size: 12px; color: #555; margin-top: 4px; border-bottom: 1px dotted #ddd; padding-bottom: 4px; }
 
-        #authOverlay { background: #f4f7f6; display: flex; flex-direction: column; z-index: 999999; }
         .auth-container { background: #ffffff; padding: 40px 25px; border-radius: 16px; width: 100%; max-width: 340px; text-align: center; border: 1px solid #ddd; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .auth-input { width: 100%; padding: 15px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; outline: none; background: #f9f9f9; }
         .auth-input:focus { border-color: var(--primary); background: #fff; }
@@ -149,17 +148,6 @@
     </style>
 </head>
 <body>
-
-<div id="authOverlay" class="modal-overlay">
-    <div class="auth-container">
-        <h2 style="color: var(--primary); margin-top: 0; font-weight: 800;">KÍCH HOẠT THIẾT BỊ</h2>
-        <p style="font-size: 13px; color: gray; margin-bottom: 25px;">Vui lòng nhập mã đăng ký do quản lý cấp để sử dụng hệ thống.</p>
-        <input type="text" id="regName" class="auth-input" placeholder="Tên nhân viên (VD: Lan Anh)">
-        <input type="password" id="regPass" class="auth-input" placeholder="Tạo mật khẩu cá nhân">
-        <input type="number" id="regCode" class="auth-input" placeholder="Mã đăng ký (5 số)" oninput="if(this.value.length > 5) this.value = this.value.slice(0,5);">
-        <button onclick="registerDevice()" style="width: 100%; background: var(--primary-gradient); color: white; padding: 15px; border: none; border-radius: 10px; font-weight: bold; font-size: 15px;">ĐĂNG KÝ VÀ VÀO CA</button>
-    </div>
-</div>
 
 <!-- PORTAL OVERLAY: LỰA CHỌN CỬA HÀNG / NHÂN VIÊN & ĐĂNG NHẬP / ĐĂNG KÝ -->
 <div id="portalOverlay" class="modal-overlay" style="display:none; z-index:9999999; background:rgba(15,23,42,0.85); backdrop-filter:blur(6px);">
@@ -724,7 +712,7 @@
             Object.keys(stores).forEach(sId => {
                 const s = stores[sId];
                 if (s && s.phone === phone && s.password === pass) {
-                    matchedStore = { ...s, id: parseInt(sId) || s.id };
+                    matchedStore = { ...s, id: parseInt(s.id) || parseInt(sId) || 1 };
                 }
             });
 
@@ -778,8 +766,9 @@
                 let maxId = 1;
                 Object.keys(stores).forEach(k => {
                     const s = stores[k];
-                    if (s && s.phone === phone) phoneExists = true;
-                    const numericId = parseInt(k) || (s && s.id) || 1;
+                    if (!s) return;
+                    if (s.phone === phone) phoneExists = true;
+                    const numericId = parseInt(s.id) || parseInt(k) || 1;
                     if (numericId > maxId) maxId = numericId;
                 });
 
@@ -835,11 +824,11 @@
         // Search through stores to find device with this phone and password
         db.ref('settings/stores').once('value').then(storesSnap => {
             const stores = storesSnap.val() || {};
-            const storeIds = Object.keys(stores);
+            const validStoreIds = Object.keys(stores).filter(sId => stores[sId] !== null && stores[sId] !== undefined);
 
-            if (storeIds.length === 0) return alert("Không tìm thấy cửa hàng nào trong hệ thống!");
+            if (validStoreIds.length === 0) return alert("Không tìm thấy cửa hàng nào trong hệ thống!");
 
-            let checkPromises = storeIds.map(sId => {
+            let checkPromises = validStoreIds.map(sId => {
                 return db.ref(`devices/store_${sId}`).once('value').then(devSnap => {
                     const devs = devSnap.val() || {};
                     let matchedDev = null;
@@ -971,11 +960,23 @@
     }
 
     function loadSystemAdminData() {
-        // Load activation code
+        // Fallback default activation code immediately
+        const codeElem = document.getElementById('sysDisplayActivationCode');
+        if (codeElem && (!codeElem.innerText || codeElem.innerText === '------')) {
+            codeElem.innerText = '888999';
+        }
+
+        // Load activation code from Firebase
         db.ref('settings/system').once('value').then(sysSnap => {
             const sys = sysSnap.val() || {};
             const code = sys.activationCode || "888999";
-            document.getElementById('sysDisplayActivationCode').innerText = code;
+            if (codeElem) codeElem.innerText = code;
+            if (!sys.activationCode) {
+                db.ref('settings/system').update({ activationCode: "888999" }).catch(()=>{});
+            }
+        }).catch(err => {
+            console.warn("Chưa đọc được mã kích hoạt từ Firebase (dùng mã mặc định 888999):", err);
+            if (codeElem) codeElem.innerText = "888999";
         });
 
         // Load all stores
@@ -983,36 +984,47 @@
         container.innerHTML = '<div style="text-align:center; color:gray; padding:20px;">Đang tính toán doanh thu các cửa hàng...</div>';
 
         db.ref('settings/stores').once('value').then(storesSnap => {
-            const stores = storesSnap.val() || {};
-            const storeIds = Object.keys(stores);
-            document.getElementById('sysTotalStoresCount').innerText = storeIds.length;
+            const storesRaw = storesSnap.val() || {};
+            // Filter valid stores (handle array with null or object)
+            const validStoreKeys = Object.keys(storesRaw).filter(k => storesRaw[k] !== null && storesRaw[k] !== undefined);
+            document.getElementById('sysTotalStoresCount').innerText = validStoreKeys.length;
 
-            if (storeIds.length === 0) {
+            if (validStoreKeys.length === 0) {
                 container.innerHTML = '<p style="color:gray; text-align:center;">Chưa có cửa hàng nào được ghi nhận.</p>';
                 return;
             }
 
-            let revenuePromises = storeIds.map(sId => {
-                const s = stores[sId];
+            let revenuePromises = validStoreKeys.map(sId => {
+                const s = storesRaw[sId];
+                const realStoreId = parseInt(s.id) || parseInt(sId) || 1;
                 return Promise.all([
-                    db.ref(`shift_logs/store_${sId}`).once('value'),
-                    db.ref(`active_shift/store_${sId}`).once('value')
+                    db.ref(`shift_logs/store_${realStoreId}`).once('value').catch(() => ({ val: () => null })),
+                    db.ref(`active_shift/store_${realStoreId}`).once('value').catch(() => ({ val: () => null }))
                 ]).then(([shiftLogsSnap, activeShiftSnap]) => {
                     let totalRev = 0;
-                    const shiftLogs = shiftLogsSnap.val() || {};
+                    const shiftLogs = (shiftLogsSnap && shiftLogsSnap.val()) || {};
                     Object.values(shiftLogs).forEach(log => {
-                        totalRev += (log.revenue || 0);
+                        if (log && log.revenue) totalRev += (log.revenue || 0);
                     });
-                    const activeShift = activeShiftSnap.val();
+                    const activeShift = (activeShiftSnap && activeShiftSnap.val()) || null;
                     if (activeShift && activeShift.revenue) {
                         totalRev += (activeShift.revenue || 0);
                     }
                     return {
-                        id: parseInt(sId) || s.id,
-                        name: s.name || 'Chưa đặt tên',
-                        phone: s.phone || 'Chưa có SĐT',
-                        createdAt: s.createdAt || 'N/A',
+                        id: realStoreId,
+                        name: (s && s.name) || 'Chưa đặt tên',
+                        phone: (s && s.phone) || 'Chưa có SĐT',
+                        createdAt: (s && s.createdAt) || 'N/A',
                         revenue: totalRev,
+                        data: s
+                    };
+                }).catch(() => {
+                    return {
+                        id: realStoreId,
+                        name: (s && s.name) || 'Chưa đặt tên',
+                        phone: (s && s.phone) || 'Chưa có SĐT',
+                        createdAt: (s && s.createdAt) || 'N/A',
+                        revenue: 0,
                         data: s
                     };
                 });
@@ -1048,7 +1060,12 @@
                 });
             });
         }).catch(err => {
-            container.innerHTML = '<p style="color:red; text-align:center;">Lỗi tải cửa hàng: ' + err.message + '</p>';
+            const errMsg = err && err.message ? err.message : String(err);
+            let hint = '';
+            if (errMsg.includes('permission_denied') || errMsg.includes('Permission denied')) {
+                hint = '<br><span style="font-size:12px; color:#555;">(Lưu ý: Realtime Database chưa mở quyền đọc/ghi. Vui lòng cập nhật Rules trong Firebase Console theo hướng dẫn trong README.md)</span>';
+            }
+            container.innerHTML = '<p style="color:red; text-align:center;">Lỗi tải cửa hàng: ' + errMsg + hint + '</p>';
         });
     }
 
@@ -1111,8 +1128,6 @@
 
         // Hide portal overlay
         hidePortalOverlay();
-        const authOv = document.getElementById('authOverlay');
-        if (authOv) authOv.style.display = 'none';
 
         // Load store info & Google Sheet link
         db.ref('settings/stores/' + currentStoreId).once('value').then(snap => {
@@ -1484,8 +1499,6 @@
             return;
         }
         isAdmin = true;
-        const authOv = document.getElementById('authOverlay');
-        if (authOv) authOv.style.display = 'none';
         loadShiftLogsData();
         showTab('admin');
     }
