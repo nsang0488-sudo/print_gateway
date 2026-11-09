@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>UYÊN COFFEE POS PRO</title>
+    <title>POS PRO</title>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-database-compat.js"></script>
     <style>
@@ -66,7 +66,6 @@
             color: var(--dark);
         }
         .table-card:active { transform: scale(0.95); }
-        /* == ĐÃ CHỈNH SỬA MÀU ĐỎ & XANH ĐẬM HƠN DỄ NHÌN == */
         .table-card.status-red { border: 2px solid #dc3545; background: #ffb8c0; order: 1; }
         .table-card.status-green { border: 2px solid #28a745; background: #b8e6c1; order: 1; }
 
@@ -133,7 +132,6 @@
         button { cursor: pointer; }
         button:active { transform: scale(0.97); }
 
-        /* ====== BẢN VÁ CHO ĐIỆN THOẠI (GIAO DIỆN DỌC CÂN ĐỐI) ====== */
         @media (max-width: 768px) {
             .menu-container-flex { width: 60%; }
             .bill-part { width: 40%; }
@@ -163,27 +161,138 @@
     </div>
 </div>
 
+<!-- PORTAL OVERLAY: LỰA CHỌN CỬA HÀNG / NHÂN VIÊN & ĐĂNG NHẬP / ĐĂNG KÝ -->
+<div id="portalOverlay" class="modal-overlay" style="display:none; z-index:9999999; background:rgba(15,23,42,0.85); backdrop-filter:blur(6px);">
+    <div class="auth-container" style="max-width:380px; width:92%; padding:30px 22px; position:relative;">
+        <div style="text-align:center; margin-bottom:20px;">
+            <div style="font-size:26px;">☕🏪</div>
+            <h2 id="portalTitle" style="color:var(--primary); margin:6px 0 4px 0; font-weight:900; font-size:20px;">CHỌN VAI TRÒ TRUY CẬP</h2>
+            <p id="portalSubtitle" style="font-size:12px; color:gray; margin:0;">Hệ thống POS Đa Cửa Hàng Chuyên Nghiệp</p>
+        </div>
+
+        <!-- Role Selector Tabs -->
+        <div id="roleSelectTabs" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:18px;">
+            <button id="tabBtnStoreRole" onclick="selectPortalRole('store')" style="padding:12px 6px; border:2px solid var(--primary); border-radius:10px; background:var(--primary); color:white; font-weight:bold; font-size:13px; cursor:pointer;">🏪 CỬA HÀNG</button>
+            <button id="tabBtnStaffRole" onclick="selectPortalRole('staff')" style="padding:12px 6px; border:2px solid #ddd; border-radius:10px; background:#fff; color:#555; font-weight:bold; font-size:13px; cursor:pointer;">👤 NHÂN VIÊN</button>
+        </div>
+
+        <!-- Sub Tabs (Login / Register) -->
+        <div style="display:flex; border-bottom:2px solid #eee; margin-bottom:18px;">
+            <button id="subTabBtnLogin" onclick="setPortalMode('login')" style="flex:1; padding:10px; border:none; background:none; font-weight:bold; font-size:13px; color:var(--primary); border-bottom:3px solid var(--primary); cursor:pointer;">ĐĂNG NHẬP</button>
+            <button id="subTabBtnRegister" onclick="setPortalMode('register')" style="flex:1; padding:10px; border:none; background:none; font-weight:bold; font-size:13px; color:#888; cursor:pointer;">ĐĂNG KÝ MỚI</button>
+        </div>
+
+        <!-- Form 1: Cửa hàng Đăng nhập -->
+        <div id="formStoreLogin">
+            <input type="tel" id="storeLoginPhone" class="auth-input" placeholder="Số điện thoại chủ cửa hàng" autocomplete="tel">
+            <input type="password" id="storeLoginPass" class="auth-input" placeholder="Mật khẩu cửa hàng">
+            <button onclick="handleStoreLogin()" style="width:100%; background:var(--primary-gradient); color:white; padding:14px; border:none; border-radius:10px; font-weight:bold; font-size:14px; margin-bottom:10px;">VÀO CỬA HÀNG</button>
+        </div>
+
+        <!-- Form 2: Cửa hàng Đăng ký -->
+        <div id="formStoreRegister" style="display:none;">
+            <input type="text" id="storeRegName" class="auth-input" placeholder="Tên cửa hàng">
+            <input type="tel" id="storeRegPhone" class="auth-input" placeholder="Số điện thoại liên hệ">
+            <input type="password" id="storeRegPass" class="auth-input" placeholder="Tạo mật khẩu gian hàng">
+            <input type="text" id="storeRegActivationCode" class="auth-input" placeholder="Mã kích hoạt mở gian hàng">
+            <button onclick="handleStoreRegister()" style="width:100%; background:var(--success-gradient); color:white; padding:14px; border:none; border-radius:10px; font-weight:bold; font-size:14px; margin-bottom:10px;">TẠO GIAN HÀNG MỚI</button>
+        </div>
+
+        <!-- Form 3: Nhân viên Đăng nhập -->
+        <div id="formStaffLogin" style="display:none;">
+            <input type="tel" id="staffLoginPhone" class="auth-input" placeholder="Số điện thoại nhân viên">
+            <input type="password" id="staffLoginPass" class="auth-input" placeholder="Mật khẩu cá nhân">
+            <button onclick="handleStaffLogin()" style="width:100%; background:var(--primary-gradient); color:white; padding:14px; border:none; border-radius:10px; font-weight:bold; font-size:14px; margin-bottom:10px;">ĐĂNG NHẬP VÀO CA</button>
+        </div>
+
+        <!-- Form 4: Nhân viên Đăng ký -->
+        <div id="formStaffRegister" style="display:none;">
+            <input type="text" id="staffRegName" class="auth-input" placeholder="Họ và tên nhân viên (VD: Lan Anh)">
+            <input type="tel" id="staffRegPhone" class="auth-input" placeholder="Số điện thoại cá nhân">
+            <input type="number" id="staffRegStoreId" class="auth-input" placeholder="Số thứ tự cửa hàng (VD: 1, 2...)">
+            <input type="password" id="staffRegPass" class="auth-input" placeholder="Tạo mật khẩu cá nhân">
+            <input type="text" id="staffRegCode" class="auth-input" placeholder="Mã đăng ký (do Quản lý cấp)">
+            <button onclick="handleStaffRegister()" style="width:100%; background:var(--primary-gradient); color:white; padding:14px; border:none; border-radius:10px; font-weight:bold; font-size:14px; margin-bottom:10px;">ĐĂNG KÝ VÀ VÀO CA</button>
+        </div>
+
+        <!-- Chân trang: Mục nhỏ Quản lý hệ thống -->
+        <div style="margin-top:16px; pt:12px; border-top:1px dashed #eee; text-align:center;">
+            <button onclick="openSystemAdminLogin()" style="background:none; border:none; color:#888; font-size:12px; text-decoration:underline; cursor:pointer;">🛡️ Quản lý hệ thống</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ĐĂNG NHẬP QUẢN TRỊ HỆ THỐNG TỔNG -->
+<div id="systemAdminLoginModal" class="modal-overlay" style="display:none; z-index:99999999; background:rgba(0,0,0,0.85);">
+    <div class="auth-container" style="max-width:340px; width:90%; padding:30px 22px;">
+        <h3 style="margin-top:0; color:var(--dark); font-weight:800;">🛡️ QUẢN TRỊ HỆ THỐNG</h3>
+        <p style="font-size:12px; color:gray; margin-bottom:20px;">Dành riêng cho Quản trị viên cấp cao</p>
+        <input type="tel" id="sysAdminPhone" class="auth-input" placeholder="Số điện thoại quản trị">
+        <input type="password" id="sysAdminPass" class="auth-input" placeholder="Mật khẩu quản trị">
+        <input type="password" id="sysAdminSecurityCode" class="auth-input" placeholder="Mã bảo mật">
+        <button onclick="handleSystemAdminLogin()" style="width:100%; background:var(--dark); color:white; padding:14px; border:none; border-radius:10px; font-weight:bold; font-size:14px; margin-bottom:10px;">ĐĂNG NHẬP HỆ THỐNG</button>
+        <p onclick="closeModal('systemAdminLoginModal')" style="text-align:center; margin:10px 0 0 0; color:gray; cursor:pointer; font-weight:bold; font-size:13px;">Hủy / Đóng</p>
+    </div>
+</div>
+
+<!-- MODAL: BẢNG ĐIỀU KHIỂN QUẢN TRỊ HỆ THỐNG TỔNG -->
+<div id="systemAdminDashboardModal" class="modal-overlay" style="display:none; z-index:99999999; background:rgba(15,23,42,0.9);">
+    <div style="background:#ffffff; border-radius:16px; width:95%; max-width:750px; max-height:90vh; overflow-y:auto; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding-bottom:12px; margin-bottom:18px;">
+            <div>
+                <h2 style="margin:0; color:var(--dark); font-size:18px;">🛡️ QUẢN LÝ TỔNG HỆ THỐNG</h2>
+                <span style="font-size:12px; color:gray;">Toàn quyền giám sát các cửa hàng & mã kích hoạt</span>
+            </div>
+            <button onclick="closeModal('systemAdminDashboardModal')" style="background:var(--danger); color:white; border:none; border-radius:8px; padding:8px 14px; font-weight:bold; font-size:12px;">ĐÓNG</button>
+        </div>
+
+        <!-- Khối mã kích hoạt hệ thống -->
+        <div class="admin-section" style="background:#f8f9fa; border:1px solid #c7d2fe; border-radius:12px; padding:16px; margin-bottom:18px;">
+            <h4 style="margin:0 0 6px 0; color:var(--primary); font-size:14px;">🔑 MÃ KÍCH HOẠT MỞ GIAN HÀNG MỚI</h4>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                <div>
+                    Mã hiện tại: <b id="sysDisplayActivationCode" style="font-size:22px; color:var(--danger); letter-spacing:3px;">------</b>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button onclick="changeSystemActivationCode()" style="background:var(--primary); color:white; border:none; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:bold;">🔄 ĐỔI MÃ KÍCH HOẠT</button>
+                    <button onclick="copySystemActivationCode()" style="background:var(--dark); color:white; border:none; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:bold;">📋 SAO CHÉP</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Khối danh sách cửa hàng -->
+        <h4 style="margin:0 0 10px 0; color:var(--dark); font-size:15px;">🏪 TẤT CẢ CỬA HÀNG ĐANG HOẠT ĐỘNG (<span id="sysTotalStoresCount">0</span>)</h4>
+        <div id="sysStoresListContainer" style="max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
+            <div style="text-align:center; color:gray; padding:20px;">Đang tải dữ liệu cửa hàng...</div>
+        </div>
+    </div>
+</div>
+
 <div class="navbar">
-    <div style="font-weight: 900; color: var(--primary); font-size: 18px; letter-spacing: 1px;">UYÊN COFFEE</div>
-    <div style="display:flex; gap:8px;">
+    <div id="navStoreBrand" style="font-weight: 900; color: var(--primary); font-size: 17px; letter-spacing: 0.5px; display:flex; align-items:center; gap:6px;">
+        <span id="navbarStoreName">CỬA HÀNG</span>
+        <span id="navbarStoreBadge" style="font-size:11px; background:#ede9fe; color:var(--primary); padding:2px 8px; border-radius:6px; font-weight:bold;">#1</span>
+    </div>
+    <div style="display:flex; gap:8px; align-items: center;">
+        <div id="connectionStatusIndicator" class="nav-item" style="background: #f1f3f5; color: #495057; display: flex; align-items: center; gap: 6px; cursor: default; border: 1px solid #ced4da; padding: 8px 12px;">
+            <span id="connDot" style="width: 9px; height: 9px; background: #ffc107; border-radius: 50%; display: inline-block;"></span>
+            <span id="connText" style="font-size: 11px; font-weight: bold;">Kết nối...</span>
+        </div>
         <button class="nav-item" onclick="showTab('tasks')">📋 VIỆC</button>
-        <button class="nav-item" onclick="accessAdmin()">⚙️ QUẢN LÝ</button>
+        <button class="nav-item" id="navAdminBtn" onclick="accessAdmin()">⚙️ QUẢN LÝ</button>
+        <button class="nav-item" onclick="logoutCurrentSession()" title="Đăng xuất khỏi gian hàng" style="background:#fee2e2; color:var(--danger); border:1px solid #fca5a5; padding:8px 10px;">🚪</button>
     </div>
 </div>
 
 <div id="tab-tables" class="tab-content active" style="flex-direction: column;">
-    <!-- Sub-tab Bar -->
     <div id="table-subtabs" style="display: flex; background: #ffffff; border-bottom: 1px solid #ddd; flex-shrink: 0;">
         <button id="subtab-btn-tables" onclick="switchTableSubTab('tables')" style="flex:1; padding: 12px; border: none; background: transparent; font-weight: bold; font-size: 13px; cursor: pointer; border-bottom: 3px solid var(--primary); color: var(--primary);">🪑 Tất cả bàn</button>
         <button id="subtab-btn-bills" onclick="switchTableSubTab('bills')" style="flex:1; padding: 12px; border: none; background: transparent; font-weight: bold; font-size: 13px; cursor: pointer; color: #666;">🧾 Hóa đơn chưa thanh toán</button>
     </div>
 
-    <!-- Table Grid -->
     <div id="list-tables" class="tables-grid"></div>
 
-    <!-- Table Order / Bill View -->
     <div id="table-order-view" class="order-container" style="display: none; flex-direction: column;">
-        <!-- Top Title Bar like IMG_4470 -->
         <div id="order-top-header" style="background: var(--primary); color: white; padding: 12px 15px; display: flex; align-items: center; justify-content: space-between; font-weight: bold; font-size: 16px;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button onclick="closeTableOrderView()" style="background: transparent; color: white; border: none; font-size: 18px; cursor: pointer; padding: 0 5px;">←</button>
@@ -191,12 +300,12 @@
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <button onclick="deleteActiveTableBill()" style="background: rgba(220, 53, 69, 0.25); color: #fff; border: 1px solid rgba(255,255,255,0.4); padding: 4px 8px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 3px;" title="Xóa bill">🗑️</button>
+                <button onclick="printTempBill()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 4px 8px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 3px;" title="In tạm tính">🖨️</button>
                 <button onclick="openMoveTable()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">CHUYỂN</button>
                 <span style="font-size: 18px; cursor: pointer;" onclick="toggleOrderSubView()">⇆</span>
             </div>
         </div>
 
-        <!-- Order Summary Bar like IMG_4470 -->
         <div id="order-summary-bar" style="background: #2c3e50; color: white; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1a252f;">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <div style="background: var(--primary); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px;">🛒</div>
@@ -235,7 +344,6 @@
             <h2 style="color: var(--dark);">📋 Quản Lý Giao Việc</h2>
 
             <div class="admin-section">
-                <!-- THÊM NÚT NHẬN VIỆC TẠI ĐÂY -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <h3 style="margin:0;">Chọn nhân viên:</h3>
                     <button onclick="openTransferTaskModal()" style="background:var(--primary); color:white; border:none; padding:8px 12px; border-radius:8px; font-size:11px; font-weight:bold; cursor:pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">🔄 NHẬN VIỆC TỪ...</button>
@@ -308,12 +416,29 @@
             <button onclick="addMenu()" style="width:100%;padding:14px;background:var(--primary-gradient);color:white;border:none;border-radius:10px; font-weight: bold;">THÊM MÓN</button>
             <div id="adminMenu" style="margin-top:15px; max-height:300px; overflow-y:auto; padding-right: 5px;"></div>
         </div>
+
+        <div class="admin-section" id="printKitchenSettingSection">
+            <h3 style="margin-top:0;">🖨️ Cài Đặt In Phiếu Bếp (Xác Nhận Đơn)</h3>
+            <p style="font-size:13px; color:#666; margin-top:0; margin-bottom:12px; line-height: 1.5;">
+                Khi <b>BẬT (ON)</b>: Bấm "Xác nhận" sẽ gửi lệnh in món mới về máy in bếp.<br>
+                Khi <b>TẮT (OFF)</b>: Bấm "Xác nhận" chỉ cập nhật món vào hệ thống, không gửi lệnh in về máy in giúp tiết kiệm giấy.
+            </p>
+            <div style="display:flex; align-items:center; justify-content:space-between; background:#f8f9fa; padding:12px 16px; border-radius:10px; border:1px solid #eee;">
+                <div>
+                    <span style="font-weight:bold; font-size:14px; color:var(--dark);">Trạng thái in phiếu order:</span>
+                    <div id="kitchenPrintStatusText" style="font-size:12px; font-weight:bold; color:var(--success); margin-top:2px;">ĐANG BẬT IN (ON)</div>
+                </div>
+                <button id="btnToggleKitchenPrint" onclick="toggleKitchenPrint()" style="padding:10px 20px; font-size:14px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; background:var(--success); color:white; transition: all 0.2s ease;">
+                    BẬT (ON)
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
 <div id="tab-admin" class="tab-content">
     <div style="padding:15px; width:100%; overflow-y:auto; padding-bottom:100px;">
-        <h2 style="color: var(--dark);">Khu Vực Quản Lý (Mật khẩu)</h2>
+        <h2 style="color: var(--dark);">Khu Vực Quản Lý Cửa Hàng</h2>
 
         <div class="admin-section">
             <h3 style="margin-top:0;">📱 Thiết Bị & Quyền</h3>
@@ -349,14 +474,23 @@
         </div>
 
         <div class="admin-section">
-            <h3 style="margin-top:0;">🖼️ Cài Đặt QR</h3>
-            <input type="text" id="qrUrlInput" placeholder="Link ảnh QR..." style="width:100%;padding:14px;margin-bottom:12px;border:1px solid #ddd; border-radius: 10px; background: white;">
+            <h3 style="margin-top:0;">🖼️ Cài Đặt Tài Khoản QR</h3>
+            <label style="font-size:12px; font-weight:bold; color:var(--dark);">Link ảnh QR Thanh Toán (Mặc định):</label>
+            <input type="text" id="qrUrlInput" placeholder="Link ảnh QR..." style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd; border-radius: 10px; background: white;">
             <button onclick="saveQR()" style="width:100%;padding:14px;background:var(--dark);color:white;border:none;border-radius:10px; font-weight: bold;">LƯU QR</button>
+        </div>
+
+
+
+        <div class="admin-section">
+            <h3 style="margin-top:0;">📊 Link Google Sheet Lưu Trữ Lịch Sử Chốt Ca</h3>
+            <p style="font-size:12px; color:gray; margin-top:2px; margin-bottom:10px;">Dán URL Google Apps Script Web App (chốt ca sẽ tự động gửi số liệu doanh thu vào bảng tính này):</p>
+            <input type="text" id="googleSheetUrlInput" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd; border-radius: 10px; background: white;">
+            <button onclick="saveGoogleSheetUrl()" style="width:100%;padding:14px;background:var(--success);color:white;border:none;border-radius:10px; font-weight: bold;">LƯU LINK GOOGLE SHEET</button>
         </div>
     </div>
 </div>
 
-<!-- THÊM MODAL ĐỂ CHỌN NHÂN VIÊN CHUYỂN VIỆC -->
 <div id="transferTaskModal" class="modal-overlay">
     <div class="modal">
         <h3 style="margin-top:0; color: var(--dark);">Nhận việc từ nhân viên khác</h3>
@@ -398,7 +532,8 @@
         <div id="transferSection" style="display:none; text-align:center;">
             <img id="qrDisplay" class="qr-image-display" src="">
         </div>
-        <button onclick="handlePay()" style="width:100%; background:var(--dark); color:white; padding:16px; border:none; border-radius:12px; font-weight:bold; font-size: 15px;">HOÀN TẤT</button>
+        <button onclick="handlePay(false)" style="width:100%; background:var(--dark); color:white; padding:14px; border:none; border-radius:12px; font-weight:bold; font-size: 14px; margin-bottom: 8px;">KHÔNG IN HĐ</button>
+        <button onclick="handlePay(true)" style="width:100%; background:var(--primary-gradient); color:white; padding:14px; border:none; border-radius:12px; font-weight:bold; font-size: 14px;">IN HĐ</button>
         <p onclick="closeModal('payModal')" style="text-align:center; margin-top:15px; color:gray; cursor:pointer; font-weight: bold;">Hủy</p>
     </div>
 </div>
@@ -441,16 +576,32 @@
 
 <script>
     const firebaseConfig = {
-        apiKey: "AIzaSyCY23UN98357R178ZCxY9BhoTiX3LTzaQ8",
-        authDomain: "uyencoffeepos.firebaseapp.com",
-        databaseURL: "https://uyencoffeepos-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "uyencoffeepos",
-        storageBucket: "uyencoffeepos.firebasedatabase.app",
-        messagingSenderId: "320504505998",
-        appId: "1:320504505998:web:267ba0c6e8a283b4dd8bdf"
+        apiKey: "AIzaSyBYPjL5OrGT8OTvjK2HnP1EgAyI7GoOrHM",
+        authDomain: "fir-pos-8ff24.firebaseapp.com",
+        databaseURL: "https://fir-pos-8ff24-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "fir-pos-8ff24",
+        storageBucket: "fir-pos-8ff24.firebasestorage.app",
+        messagingSenderId: "219095426302",
+        appId: "1:219095426302:web:40347dfbf1fc0e042331af",
+        measurementId: "G-LM4DCN7TLH"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+
+    db.ref('.info/connected').on('value', function(snapshot) {
+        const dot = document.getElementById('connDot');
+        const text = document.getElementById('connText');
+        const indicator = document.getElementById('connectionStatusIndicator');
+        if (snapshot.val() === true) {
+            if (dot) { dot.style.background = '#28a745'; }
+            if (text) { text.innerText = 'Mạng Tốt'; text.style.color = '#28a745'; }
+            if (indicator) { indicator.style.borderColor = '#28a745'; indicator.style.background = '#e8f5e9'; }
+        } else {
+            if (dot) { dot.style.background = '#dc3545'; }
+            if (text) { text.innerText = 'Mất Mạng / Yếu'; text.style.color = '#dc3545'; }
+            if (indicator) { indicator.style.borderColor = '#dc3545'; indicator.style.background = '#f8d7da'; }
+        }
+    });
 
     let currentTab = 'tables';
     let curTable = null, menuData = {}, tablesData = {}, currentShift = null, curType = 'Đá', tempItem = null, editIdx = null, payMethod = 'cash', qrUrl = "";
@@ -460,33 +611,631 @@
     let isAdmin = false;
     let allDevicesData = {};
 
-    db.ref('settings/regCode').on('value', s => {
-        currentRegCode = s.val() || "Chưa có";
-        document.getElementById('displayRegCode').innerText = currentRegCode;
-    });
+    // --- MULTI-STORE ENGINE & SESSION STATE ---
+    let currentStoreId = 1;
+    let currentStoreData = null;
+    let currentGoogleSheetUrl = "";
+    let currentPortalRole = 'store'; // 'store' | 'staff'
+    let currentPortalMode = 'login'; // 'login' | 'register'
+    let storeListenersAttached = false;
+    let attachedListeners = []; // Track listeners to cleanly detach if switching stores
 
-    db.ref('devices').on('value', s => {
-        allDevicesData = s.val() || {};
-        renderDevicesList(allDevicesData);
-        checkDeviceAuth(allDevicesData);
-        updateTasksViewDropdown();
-    });
+    function storeRef(path) {
+        if (!path) return db.ref();
+        const cleanPath = path.replace(/^\/+/, '');
+        const parts = cleanPath.split('/');
+        const rootNode = parts[0];
+        const rest = parts.slice(1).join('/');
+
+        // Special system-wide nodes that don't belong to a specific store
+        if (rootNode === 'settings' && (parts[1] === 'stores' || parts[1] === 'system')) {
+            return db.ref(cleanPath);
+        }
+
+        const sid = currentStoreId || 1;
+        const targetPath = `${rootNode}/store_${sid}${rest ? '/' + rest : ''}`;
+        return db.ref(targetPath);
+    }
+
+    function storeUpdate(updates) {
+        if (!updates || Object.keys(updates).length === 0) return Promise.resolve();
+        const sid = currentStoreId || 1;
+        let scopedUpdates = {};
+        Object.keys(updates).forEach(key => {
+            const cleanKey = key.replace(/^\/+/, '');
+            const parts = cleanKey.split('/');
+            const rootNode = parts[0];
+            const rest = parts.slice(1).join('/');
+
+            if (rootNode === 'settings' && (parts[1] === 'stores' || parts[1] === 'system')) {
+                scopedUpdates[cleanKey] = updates[key];
+            } else {
+                scopedUpdates[`${rootNode}/store_${sid}${rest ? '/' + rest : ''}`] = updates[key];
+            }
+        });
+        return db.ref().update(scopedUpdates);
+    }
+
+    // Portal Role & Tab Navigation
+    function selectPortalRole(role) {
+        currentPortalRole = role;
+        const btnStore = document.getElementById('tabBtnStoreRole');
+        const btnStaff = document.getElementById('tabBtnStaffRole');
+        if (role === 'store') {
+            btnStore.style.background = 'var(--primary)';
+            btnStore.style.color = 'white';
+            btnStore.style.borderColor = 'var(--primary)';
+            btnStaff.style.background = '#fff';
+            btnStaff.style.color = '#555';
+            btnStaff.style.borderColor = '#ddd';
+        } else {
+            btnStaff.style.background = 'var(--primary)';
+            btnStaff.style.color = 'white';
+            btnStaff.style.borderColor = 'var(--primary)';
+            btnStore.style.background = '#fff';
+            btnStore.style.color = '#555';
+            btnStore.style.borderColor = '#ddd';
+        }
+        updatePortalForms();
+    }
+
+    function setPortalMode(mode) {
+        currentPortalMode = mode;
+        const btnLogin = document.getElementById('subTabBtnLogin');
+        const btnReg = document.getElementById('subTabBtnRegister');
+        if (mode === 'login') {
+            btnLogin.style.color = 'var(--primary)';
+            btnLogin.style.borderBottom = '3px solid var(--primary)';
+            btnReg.style.color = '#888';
+            btnReg.style.borderBottom = 'none';
+        } else {
+            btnReg.style.color = 'var(--primary)';
+            btnReg.style.borderBottom = '3px solid var(--primary)';
+            btnLogin.style.color = '#888';
+            btnLogin.style.borderBottom = 'none';
+        }
+        updatePortalForms();
+    }
+
+    function updatePortalForms() {
+        document.getElementById('formStoreLogin').style.display = (currentPortalRole === 'store' && currentPortalMode === 'login') ? 'block' : 'none';
+        document.getElementById('formStoreRegister').style.display = (currentPortalRole === 'store' && currentPortalMode === 'register') ? 'block' : 'none';
+        document.getElementById('formStaffLogin').style.display = (currentPortalRole === 'staff' && currentPortalMode === 'login') ? 'block' : 'none';
+        document.getElementById('formStaffRegister').style.display = (currentPortalRole === 'staff' && currentPortalMode === 'register') ? 'block' : 'none';
+    }
+
+    function showPortalOverlay() {
+        document.getElementById('portalOverlay').style.display = 'flex';
+    }
+
+    function hidePortalOverlay() {
+        document.getElementById('portalOverlay').style.display = 'none';
+    }
+
+    // Handlers for Store & Staff Auth
+    function handleStoreLogin() {
+        const phone = document.getElementById('storeLoginPhone').value.trim();
+        const pass = document.getElementById('storeLoginPass').value.trim();
+        if (!phone || !pass) return alert("Vui lòng nhập đầy đủ Số điện thoại và Mật khẩu!");
+
+        db.ref('settings/stores').once('value').then(snapshot => {
+            const stores = snapshot.val() || {};
+            let matchedStore = null;
+            Object.keys(stores).forEach(sId => {
+                const s = stores[sId];
+                if (s && s.phone === phone && s.password === pass) {
+                    matchedStore = { ...s, id: parseInt(sId) || s.id };
+                }
+            });
+
+            if (!matchedStore) {
+                return alert("Số điện thoại hoặc Mật khẩu không chính xác!");
+            }
+
+            // Save session
+            const session = {
+                role: 'Quản lý',
+                isOwner: true,
+                storeId: matchedStore.id,
+                storeName: matchedStore.name,
+                phone: matchedStore.phone,
+                userName: matchedStore.name,
+                devId: 'OWNER_' + matchedStore.id,
+                devPass: pass
+            };
+            localStorage.setItem('uc_session', JSON.stringify(session));
+            localStorage.setItem('uc_dev_id', session.devId);
+            localStorage.setItem('uc_dev_pass', pass);
+
+            applySession(session);
+        }).catch(err => {
+            alert("Lỗi kết nối kiểm tra tài khoản: " + err.message);
+        });
+    }
+
+    function handleStoreRegister() {
+        const name = document.getElementById('storeRegName').value.trim();
+        const phone = document.getElementById('storeRegPhone').value.trim();
+        const pass = document.getElementById('storeRegPass').value.trim();
+        const actCode = document.getElementById('storeRegActivationCode').value.trim();
+
+        if (!name || !phone || !pass || !actCode) {
+            return alert("Vui lòng điền đầy đủ tất cả thông tin!");
+        }
+
+        // Verify activation code
+        db.ref('settings/system').once('value').then(sysSnap => {
+            const sys = sysSnap.val() || {};
+            const correctCode = sys.activationCode || "888999";
+            if (actCode !== correctCode) {
+                return alert("Mã kích hoạt không chính xác hoặc đã được đổi!");
+            }
+
+            // Check if phone already registered
+            db.ref('settings/stores').once('value').then(storesSnap => {
+                const stores = storesSnap.val() || {};
+                let phoneExists = false;
+                let maxId = 1;
+                Object.keys(stores).forEach(k => {
+                    const s = stores[k];
+                    if (s && s.phone === phone) phoneExists = true;
+                    const numericId = parseInt(k) || (s && s.id) || 1;
+                    if (numericId > maxId) maxId = numericId;
+                });
+
+                if (phoneExists) {
+                    return alert("Số điện thoại này đã đăng ký cửa hàng trong hệ thống!");
+                }
+
+                const newStoreId = maxId + 1;
+                const newStoreData = {
+                    id: newStoreId,
+                    name: name,
+                    phone: phone,
+                    password: pass,
+                    createdAt: new Date().toLocaleString('vi-VN'),
+                    googleSheetUrl: ""
+                };
+
+                // Save store info & initialize clean store settings
+                Promise.all([
+                    db.ref('settings/stores/' + newStoreId).set(newStoreData),
+                    db.ref('settings/store_' + newStoreId + '/regCode').set(Math.floor(10000 + Math.random() * 90000).toString()),
+                    db.ref('settings/store_' + newStoreId + '/kitchenOrderPrint').set(false)
+                ]).then(() => {
+                    alert(`Chúc mừng! Gian hàng "${name}" đã tạo thành công với Số thứ tự: ${newStoreId}.\nBạn sẽ được chuyển vào ứng dụng ngay bây giờ.`);
+                    const session = {
+                        role: 'Quản lý',
+                        isOwner: true,
+                        storeId: newStoreId,
+                        storeName: name,
+                        phone: phone,
+                        userName: name,
+                        devId: 'OWNER_' + newStoreId,
+                        devPass: pass
+                    };
+                    localStorage.setItem('uc_session', JSON.stringify(session));
+                    localStorage.setItem('uc_dev_id', session.devId);
+                    localStorage.setItem('uc_dev_pass', pass);
+                    applySession(session);
+                }).catch(err => {
+                    alert("Lỗi khi tạo gian hàng: " + err.message);
+                });
+            });
+        }).catch(err => {
+            alert("Lỗi kết nối hệ thống: " + err.message);
+        });
+    }
+
+    function handleStaffLogin() {
+        const phone = document.getElementById('staffLoginPhone').value.trim();
+        const pass = document.getElementById('staffLoginPass').value.trim();
+        if (!phone || !pass) return alert("Vui lòng nhập Số điện thoại và Mật khẩu!");
+
+        // Search through stores to find device with this phone and password
+        db.ref('settings/stores').once('value').then(storesSnap => {
+            const stores = storesSnap.val() || {};
+            const storeIds = Object.keys(stores);
+
+            if (storeIds.length === 0) return alert("Không tìm thấy cửa hàng nào trong hệ thống!");
+
+            let checkPromises = storeIds.map(sId => {
+                return db.ref(`devices/store_${sId}`).once('value').then(devSnap => {
+                    const devs = devSnap.val() || {};
+                    let matchedDev = null;
+                    Object.keys(devs).forEach(devId => {
+                        const d = devs[devId];
+                        if (d && (d.phone === phone || d.name === phone) && d.password === pass) {
+                            matchedDev = { ...d, devId: devId, storeId: parseInt(sId) };
+                        }
+                    });
+                    return matchedDev;
+                });
+            });
+
+            Promise.all(checkPromises).then(results => {
+                const found = results.find(r => r !== null);
+                if (!found) {
+                    return alert("Số điện thoại hoặc Mật khẩu nhân viên không chính xác!");
+                }
+
+                const storeInfo = stores[found.storeId] || { name: 'Cửa hàng #' + found.storeId };
+                const session = {
+                    role: found.role || 'Phục vụ',
+                    isOwner: false,
+                    storeId: found.storeId,
+                    storeName: storeInfo.name,
+                    phone: phone,
+                    userName: found.name,
+                    devId: found.devId,
+                    devPass: pass
+                };
+                localStorage.setItem('uc_session', JSON.stringify(session));
+                localStorage.setItem('uc_dev_id', session.devId);
+                localStorage.setItem('uc_dev_pass', pass);
+                applySession(session);
+            });
+        }).catch(err => {
+            alert("Lỗi kiểm tra nhân viên: " + err.message);
+        });
+    }
+
+    function handleStaffRegister() {
+        const name = document.getElementById('staffRegName').value.trim();
+        const phone = document.getElementById('staffRegPhone').value.trim();
+        const storeIdInput = parseInt(document.getElementById('staffRegStoreId').value.trim());
+        const pass = document.getElementById('staffRegPass').value.trim();
+        const code = document.getElementById('staffRegCode').value.trim();
+
+        if (!name || !phone || isNaN(storeIdInput) || !pass || !code) {
+            return alert("Vui lòng điền đầy đủ tất cả thông tin đăng ký nhân viên!");
+        }
+
+        // Verify store existence and regCode
+        Promise.all([
+            db.ref('settings/stores/' + storeIdInput).once('value'),
+            db.ref('settings/store_' + storeIdInput + '/regCode').once('value')
+        ]).then(([storeSnap, codeSnap]) => {
+            const store = storeSnap.val();
+            if (!store) {
+                return alert(`Không tìm thấy cửa hàng số thứ tự #${storeIdInput}! Vui lòng kiểm tra lại.`);
+            }
+
+            const currentCode = String(codeSnap.val() || "");
+            if (code !== currentCode) {
+                return alert("Mã đăng ký không chính xác hoặc đã được quản lý đổi mới!");
+            }
+
+            const newDevId = 'DEV_' + Date.now();
+            const devData = {
+                name: name,
+                phone: phone,
+                password: pass,
+                role: 'Phục vụ',
+                createdAt: new Date().toLocaleString('vi-VN')
+            };
+
+            db.ref(`devices/store_${storeIdInput}/${newDevId}`).set(devData).then(() => {
+                alert(`Đăng ký thành công nhân viên "${name}" vào cửa hàng "${store.name}" (#${storeIdInput})!\nQuyền mặc định là Phục vụ.`);
+                const session = {
+                    role: 'Phục vụ',
+                    isOwner: false,
+                    storeId: storeIdInput,
+                    storeName: store.name,
+                    phone: phone,
+                    userName: name,
+                    devId: newDevId,
+                    devPass: pass
+                };
+                localStorage.setItem('uc_session', JSON.stringify(session));
+                localStorage.setItem('uc_dev_id', session.devId);
+                localStorage.setItem('uc_dev_pass', pass);
+                applySession(session);
+            }).catch(err => {
+                alert("Lỗi lưu tài khoản nhân viên: " + err.message);
+            });
+        }).catch(err => {
+            alert("Lỗi kết nối kiểm tra: " + err.message);
+        });
+    }
+
+    function logoutCurrentSession() {
+        if (!confirm("Bạn có chắc chắn muốn đăng xuất khỏi gian hàng này?")) return;
+        localStorage.removeItem('uc_session');
+        localStorage.removeItem('uc_dev_id');
+        localStorage.removeItem('uc_dev_pass');
+        location.reload();
+    }
+
+    // --- SYSTEM ADMIN SUPER PANEL ---
+    function openSystemAdminLogin() {
+        document.getElementById('systemAdminLoginModal').style.display = 'flex';
+    }
+
+    function handleSystemAdminLogin() {
+        const phone = document.getElementById('sysAdminPhone').value.trim();
+        const pass = document.getElementById('sysAdminPass').value.trim();
+        const secCode = document.getElementById('sysAdminSecurityCode').value.trim();
+
+        if (phone === "0946327164" && pass === "Sang19052005##" && secCode === "1905") {
+            closeModal('systemAdminLoginModal');
+            openSystemAdminDashboard();
+        } else {
+            alert("Thông tin quản trị hệ thống không chính xác!");
+        }
+    }
+
+    function openSystemAdminDashboard() {
+        document.getElementById('systemAdminDashboardModal').style.display = 'flex';
+        loadSystemAdminData();
+    }
+
+    function loadSystemAdminData() {
+        // Load activation code
+        db.ref('settings/system').once('value').then(sysSnap => {
+            const sys = sysSnap.val() || {};
+            const code = sys.activationCode || "888999";
+            document.getElementById('sysDisplayActivationCode').innerText = code;
+        });
+
+        // Load all stores
+        const container = document.getElementById('sysStoresListContainer');
+        container.innerHTML = '<div style="text-align:center; color:gray; padding:20px;">Đang tính toán doanh thu các cửa hàng...</div>';
+
+        db.ref('settings/stores').once('value').then(storesSnap => {
+            const stores = storesSnap.val() || {};
+            const storeIds = Object.keys(stores);
+            document.getElementById('sysTotalStoresCount').innerText = storeIds.length;
+
+            if (storeIds.length === 0) {
+                container.innerHTML = '<p style="color:gray; text-align:center;">Chưa có cửa hàng nào được ghi nhận.</p>';
+                return;
+            }
+
+            let revenuePromises = storeIds.map(sId => {
+                const s = stores[sId];
+                return Promise.all([
+                    db.ref(`shift_logs/store_${sId}`).once('value'),
+                    db.ref(`active_shift/store_${sId}`).once('value')
+                ]).then(([shiftLogsSnap, activeShiftSnap]) => {
+                    let totalRev = 0;
+                    const shiftLogs = shiftLogsSnap.val() || {};
+                    Object.values(shiftLogs).forEach(log => {
+                        totalRev += (log.revenue || 0);
+                    });
+                    const activeShift = activeShiftSnap.val();
+                    if (activeShift && activeShift.revenue) {
+                        totalRev += (activeShift.revenue || 0);
+                    }
+                    return {
+                        id: parseInt(sId) || s.id,
+                        name: s.name || 'Chưa đặt tên',
+                        phone: s.phone || 'Chưa có SĐT',
+                        createdAt: s.createdAt || 'N/A',
+                        revenue: totalRev,
+                        data: s
+                    };
+                });
+            });
+
+            Promise.all(revenuePromises).then(storeDataList => {
+                storeDataList.sort((a,b) => a.id - b.id);
+                container.innerHTML = '';
+                storeDataList.forEach(st => {
+                    const card = document.createElement('div');
+                    card.className = 'admin-section';
+                    card.style.cssText = 'background:#fdfdfe; border:1px solid #e2e8f0; border-radius:10px; padding:15px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;';
+                    card.innerHTML = `
+                        <div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <b style="font-size:16px; color:var(--dark);">${st.name}</b>
+                                <span style="background:var(--primary); color:white; font-size:11px; padding:2px 8px; border-radius:6px; font-weight:bold;">STT: #${st.id}</span>
+                            </div>
+                            <div style="font-size:12px; color:#555; margin-top:4px;">
+                                📞 SĐT: <b>${st.phone}</b> | 📅 Tạo lúc: ${st.createdAt}
+                            </div>
+                            <div style="font-size:13px; color:var(--danger); font-weight:bold; margin-top:6px;">
+                                💰 Tổng doanh thu: ${st.revenue.toLocaleString()}đ
+                            </div>
+                        </div>
+                        <div>
+                            <button onclick="accessStoreDirectly(${st.id}, '${st.name.replace(/'/g, "\\'")}', '${st.phone}')" style="background:var(--primary-gradient); color:white; border:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">
+                                🚀 Truy cập vào cửa hàng
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            });
+        }).catch(err => {
+            container.innerHTML = '<p style="color:red; text-align:center;">Lỗi tải cửa hàng: ' + err.message + '</p>';
+        });
+    }
+
+    function changeSystemActivationCode() {
+        const newCode = prompt("Nhập mã kích hoạt mở gian hàng mới (hoặc bấm OK để tạo mã 6 số ngẫu nhiên):");
+        if (newCode === null) return;
+        let finalCode = newCode.trim();
+        if (!finalCode) {
+            finalCode = Math.floor(100000 + Math.random() * 900000).toString();
+        }
+        db.ref('settings/system').update({
+            activationCode: finalCode,
+            updatedAt: new Date().toLocaleString('vi-VN')
+        }).then(() => {
+            document.getElementById('sysDisplayActivationCode').innerText = finalCode;
+            alert("Đã cập nhật mã kích hoạt thành công: " + finalCode);
+        }).catch(err => {
+            alert("Lỗi đổi mã: " + err.message);
+        });
+    }
+
+    function copySystemActivationCode() {
+        const code = document.getElementById('sysDisplayActivationCode').innerText;
+        navigator.clipboard.writeText(code).then(() => {
+            alert("Đã sao chép mã kích hoạt: " + code);
+        }).catch(() => {
+            alert("Mã: " + code);
+        });
+    }
+
+    function accessStoreDirectly(storeId, storeName, phone) {
+        if (!confirm(`Xác nhận truy cập vào "${storeName}" (#${storeId}) với quyền Quản lý?`)) return;
+        const session = {
+            role: 'Quản lý',
+            isOwner: true,
+            storeId: storeId,
+            storeName: storeName,
+            phone: phone,
+            userName: 'Admin Tổng (' + storeName + ')',
+            devId: 'SUPER_ADMIN_' + storeId,
+            devPass: 'root'
+        };
+        localStorage.setItem('uc_session', JSON.stringify(session));
+        localStorage.setItem('uc_dev_id', session.devId);
+        localStorage.setItem('uc_dev_pass', session.devPass);
+        closeModal('systemAdminDashboardModal');
+        applySession(session);
+    }
+
+    // Apply active store session
+    function applySession(session) {
+        currentStoreId = session.storeId;
+        isAdmin = (session.role === 'Quản lý' || session.isOwner);
+
+        // Update brand in navbar
+        const brandName = document.getElementById('navbarStoreName');
+        const brandBadge = document.getElementById('navbarStoreBadge');
+        if (brandName) brandName.innerText = session.storeName || 'CỬA HÀNG';
+        if (brandBadge) brandBadge.innerText = '#' + currentStoreId;
+
+        // Hide portal overlay
+        hidePortalOverlay();
+        const authOv = document.getElementById('authOverlay');
+        if (authOv) authOv.style.display = 'none';
+
+        // Load store info & Google Sheet link
+        db.ref('settings/stores/' + currentStoreId).once('value').then(snap => {
+            currentStoreData = snap.val() || {};
+            currentGoogleSheetUrl = currentStoreData.googleSheetUrl || "";
+            const gsInput = document.getElementById('googleSheetUrlInput');
+            if (gsInput) gsInput.value = currentGoogleSheetUrl;
+        });
+
+        // Toggle admin button visibility if role is not manager
+        const navAdmin = document.getElementById('navAdminBtn');
+        if (navAdmin) {
+            navAdmin.style.display = isAdmin ? 'block' : 'none';
+        }
+
+        // Attach listeners for this store
+        attachStoreListeners();
+        showTab('tables');
+    }
+
+    function attachStoreListeners() {
+        // Detach existing listeners if any
+        if (attachedListeners.length > 0) {
+            attachedListeners.forEach(l => {
+                try { l.ref.off('value', l.fn); } catch(e){}
+            });
+            attachedListeners = [];
+        }
+
+        function registerListener(ref, fn) {
+            ref.on('value', fn);
+            attachedListeners.push({ ref: ref, fn: fn });
+        }
+
+        // RegCode
+        registerListener(storeRef('settings/regCode'), s => {
+            currentRegCode = s.val() || "Chưa có";
+            const el = document.getElementById('displayRegCode');
+            if (el) el.innerText = currentRegCode;
+        });
+
+        // Devices
+        registerListener(storeRef('devices'), s => {
+            allDevicesData = s.val() || {};
+            renderDevicesList(allDevicesData);
+            checkDeviceAuth(allDevicesData);
+            updateTasksViewDropdown();
+        });
+
+        // Menu
+        registerListener(storeRef('menu'), s => {
+            menuData = s.val() || {};
+            renderMenu();
+            renderAdminMenu();
+        });
+
+        // Tables
+        registerListener(storeRef('tables'), s => {
+            tablesData = s.val() || {};
+            renderTables();
+            if (curTable) renderBill();
+        });
+
+        // Active shift
+        registerListener(storeRef('active_shift'), s => {
+            currentShift = s.val();
+            updateShiftUI();
+            renderActiveBills();
+        });
+
+        // Edit logs
+        registerListener(storeRef('edit_logs'), s => {
+            renderEditHistory();
+        });
+
+        // QR URL
+        registerListener(storeRef('settings/qrUrl'), s => {
+            qrUrl = s.val() || "";
+            const input = document.getElementById('qrUrlInput');
+            if (input) input.value = qrUrl;
+            updateQRDisplay();
+        });
+
+        // Kitchen Print
+        registerListener(storeRef('settings/kitchenOrderPrint'), s => {
+            const val = s.val();
+            if (val !== null && val !== undefined) {
+                isKitchenPrintEnabled = (val === true);
+            }
+            localStorage.setItem('uc_kitchen_print_enabled', isKitchenPrintEnabled ? 'true' : 'false');
+            updateKitchenPrintUI();
+        });
+
+        // Shift logs when needed
+        if (shiftLogsListenerAttached) {
+            registerListener(storeRef('shift_logs'), s => {
+                renderShiftLogs(s.val());
+                filterStats();
+            });
+        }
+    }
 
     function checkDeviceAuth(devices) {
         if (isAdmin) return;
-
         const myDevId = localStorage.getItem('uc_dev_id');
         const myDevPass = localStorage.getItem('uc_dev_pass');
 
         if (!myDevId || !devices[myDevId] || devices[myDevId].password !== myDevPass) {
-            document.getElementById('authOverlay').style.display = 'flex';
+            showPortalOverlay();
         } else {
-            document.getElementById('authOverlay').style.display = 'none';
+            hidePortalOverlay();
         }
     }
 
     function getUserRole() {
         if (isAdmin) return "Quản lý";
+        const sessionStr = localStorage.getItem('uc_session');
+        if (sessionStr) {
+            try {
+                const session = JSON.parse(sessionStr);
+                if (session.role === 'Quản lý' || session.isOwner) return "Quản lý";
+            } catch(e){}
+        }
         const myDevId = localStorage.getItem('uc_dev_id');
         if (myDevId && allDevicesData[myDevId]) {
             return allDevicesData[myDevId].role || "Phục vụ";
@@ -494,30 +1243,9 @@
         return "Phục vụ";
     }
 
-    function registerDevice() {
-        const name = document.getElementById('regName').value.trim();
-        const pass = document.getElementById('regPass').value.trim();
-        const code = document.getElementById('regCode').value.trim();
-
-        if (!name || !pass || !code) return alert("Vui lòng điền đầy đủ thông tin!");
-        if (code !== String(currentRegCode)) return alert("Mã đăng ký không chính xác hoặc đã hết hạn!");
-
-        const newDevId = 'DEV_' + Date.now();
-        db.ref('devices/' + newDevId).set({
-            name: name,
-            password: pass,
-            role: 'Phục vụ',
-            createdAt: new Date().toLocaleString('vi-VN')
-        }).then(() => {
-            localStorage.setItem('uc_dev_id', newDevId);
-            localStorage.setItem('uc_dev_pass', pass);
-            document.getElementById('authOverlay').style.display = 'none';
-            alert("Đăng ký thành công! Quyền mặc định của bạn là Phục vụ.");
-        });
-    }
-
     function renderDevicesList(devices) {
         const list = document.getElementById('deviceList');
+        if (!list) return;
         list.innerHTML = '';
         if(Object.keys(devices).length === 0) {
             list.innerHTML = '<p style="color:gray; font-size:13px; text-align:center;">Chưa có thiết bị nào đăng ký.</p>';
@@ -530,7 +1258,7 @@
                 <div class="dev-item">
                     <div>
                         <b style="font-size:14px; color:var(--dark);">👤 ${dev.name}</b><br>
-                        <span style="color:gray; font-size:11px;">Ngày tạo: ${dev.createdAt}</span><br>
+                        <span style="color:gray; font-size:11px;">SĐT: ${dev.phone || 'N/A'} | Ngày tạo: ${dev.createdAt}</span><br>
                         <select onchange="updateDeviceRole('${key}', this.value)" style="margin-top:8px; padding:6px; font-size:12px; border-radius:6px; font-weight:bold; border:1px solid #ddd;">
                             <option value="Phục vụ" ${currentRole === 'Phục vụ' ? 'selected' : ''}>Phục vụ (Không thể tính tiền)</option>
                             <option value="Thu ngân" ${currentRole === 'Thu ngân' ? 'selected' : ''}>Thu ngân (Được tính tiền)</option>
@@ -544,21 +1272,21 @@
     }
 
     function updateDeviceRole(key, newRole) {
-        db.ref('devices/' + key).update({ role: newRole }).then(() => {
+        storeRef('devices/' + key).update({ role: newRole }).then(() => {
             alert("Đã cập nhật quyền thành công!");
         });
     }
 
     function deleteDevice(key) {
         if (confirm("Xoá tài khoản này? Thiết bị của nhân viên này sẽ lập tức bị văng ra trang đăng nhập.")) {
-            db.ref('devices/' + key).remove();
+            storeRef('devices/' + key).remove();
         }
     }
 
     function generateNewCode() {
         const newCode = Math.floor(10000 + Math.random() * 90000).toString();
         if(confirm("Tạo mã đăng ký mới? (Mã cũ sẽ không còn hiệu lực)")) {
-            db.ref('settings/regCode').set(newCode);
+            storeRef('settings/regCode').set(newCode);
         }
     }
 
@@ -570,11 +1298,6 @@
             alert("Lỗi sao chép, bạn có thể tự bôi đen và copy.");
         });
     }
-
-    db.ref('menu').on('value', s => { menuData = s.val()||{}; renderMenu(); renderAdminMenu(); });
-    db.ref('tables').on('value', s => { tablesData = s.val()||{}; renderTables(); if(curTable) renderBill(); });
-    db.ref('active_shift').on('value', s => { currentShift = s.val(); updateShiftUI(); renderActiveBills(); });
-    db.ref('edit_logs').on('value', s => { renderEditHistory(); });
 
     function logEditHistory(actionType, details, reason, table) {
         let staffName = "Admin";
@@ -592,16 +1315,16 @@
             table: table || "N/A",
             staff: staffName
         };
-        db.ref('edit_logs').push(logData);
+        storeRef('edit_logs').push(logData);
         if (currentShift) {
-            db.ref('active_shift/edit_history').push(logData);
+            storeRef('active_shift/edit_history').push(logData);
         }
     }
 
     function renderEditHistory() {
         const list = document.getElementById('editHistoryList');
         if (!list) return;
-        db.ref('edit_logs').once('value', snapshot => {
+        storeRef('edit_logs').once('value', snapshot => {
             const data = snapshot.val();
             if (!data) {
                 list.innerHTML = '<div style="color:gray; font-size:13px; text-align:center; padding:15px; background:#f9f9f9; border-radius:8px;">Chưa có lịch sử sửa / xóa nào.</div>';
@@ -632,6 +1355,13 @@
 
     function deleteActiveTableBill() {
         if (!curTable) return alert("Chưa chọn bàn!");
+        
+        // Ràng buộc quyền quản lý mới được xóa tổng bill
+        const role = getUserRole();
+        if (role !== 'Quản lý') {
+            return alert("Chỉ có tài khoản Quản lý mới có quyền xóa tổng hóa đơn!");
+        }
+
         const tableData = tablesData[curTable];
         const items = tableData?.items || [];
         if (!items || items.length === 0) {
@@ -649,7 +1379,7 @@
 
         logEditHistory("Xóa toàn bộ hóa đơn", `Xóa hóa đơn Bàn ${curTable} (${totalQty} món, tổng ${total.toLocaleString()}đ)`, reason.trim(), curTable);
 
-        db.ref('tables/' + curTable).remove().then(() => {
+        storeRef('tables/' + curTable).remove().then(() => {
             alert("Đã xóa hóa đơn Bàn " + curTable);
             closeTableOrderView();
             renderTables();
@@ -657,53 +1387,126 @@
             alert("Lỗi khi xóa hóa đơn: " + err.message);
         });
     }
-    db.ref('settings/qrUrl').on('value', s => {
-        qrUrl = s.val() || "";
-        let displayUrl = qrUrl;
-        if(qrUrl.includes('drive.google.com')){
-            let fileId = qrUrl.split('/d/')[1]?.split('/')[0];
-            if(fileId) displayUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w500`;
+
+    function formatQRDisplayUrl(url) {
+        if (!url) return "";
+        if (url.includes('drive.google.com')) {
+            let fileId = url.split('/d/')[1]?.split('/')[0];
+            if (fileId) return `https://drive.google.com/thumbnail?id=${fileId}&sz=w500`;
         }
-        document.getElementById('qrDisplay').src = displayUrl;
+        return url;
+    }
+
+    function updateQRDisplay() {
+        let displayUrl = formatQRDisplayUrl(qrUrl);
+        const imgEl = document.getElementById('qrDisplay');
+        if (imgEl) {
+            imgEl.src = displayUrl;
+            imgEl.style.display = (payMethod === 'transfer' && displayUrl) ? 'block' : 'none';
+        }
+    }
+
+    storeRef('settings/qrUrl').on('value', s => {
+        qrUrl = s.val() || "";
         document.getElementById('qrUrlInput').value = qrUrl;
+        updateQRDisplay();
     });
+
+    let isKitchenPrintEnabled = localStorage.getItem('uc_kitchen_print_enabled') !== 'false';
+
+    function updateKitchenPrintUI() {
+        const statusText = document.getElementById('kitchenPrintStatusText');
+        const btnToggle = document.getElementById('btnToggleKitchenPrint');
+        if (!statusText || !btnToggle) return;
+
+        if (isKitchenPrintEnabled) {
+            statusText.innerText = "ĐANG BẬT IN (ON)";
+            statusText.style.color = "var(--success)";
+            btnToggle.innerText = "BẬT (ON)";
+            btnToggle.style.background = "var(--success)";
+        } else {
+            statusText.innerText = "ĐANG CHẶN IN (OFF)";
+            statusText.style.color = "var(--danger)";
+            btnToggle.innerText = "TẮT (OFF)";
+            btnToggle.style.background = "var(--danger)";
+        }
+    }
+
+    storeRef('settings/kitchenOrderPrint').on('value', s => {
+        const val = s.val();
+        if (val !== null && val !== undefined) {
+            isKitchenPrintEnabled = (val === true);
+        }
+        localStorage.setItem('uc_kitchen_print_enabled', isKitchenPrintEnabled ? 'true' : 'false');
+        updateKitchenPrintUI();
+    });
+
+    // --- APP STARTUP & PERSISTED SESSION RESTORATION ---
+    window.addEventListener('DOMContentLoaded', () => {
+        updateKitchenPrintUI();
+        const savedSession = localStorage.getItem('uc_session');
+        if (savedSession) {
+            try {
+                const session = JSON.parse(savedSession);
+                if (session && session.storeId) {
+                    applySession(session);
+                    return;
+                }
+            } catch (e) {
+                console.error("Lỗi đọc session:", e);
+            }
+        }
+        // First time access: show portal overlay for role selection
+        showPortalOverlay();
+        selectPortalRole('store');
+        setPortalMode('login');
+    });
+
+    function toggleKitchenPrint() {
+        isKitchenPrintEnabled = !isKitchenPrintEnabled;
+        localStorage.setItem('uc_kitchen_print_enabled', isKitchenPrintEnabled ? 'true' : 'false');
+        updateKitchenPrintUI();
+        storeRef('settings/kitchenOrderPrint').set(isKitchenPrintEnabled);
+    }
 
     let shiftLogsListenerAttached = false;
     function loadShiftLogsData() {
         if (!shiftLogsListenerAttached) {
             shiftLogsListenerAttached = true;
-            db.ref('shift_logs').on('value', s => { renderShiftLogs(s.val()); filterStats(); });
+            storeRef('shift_logs').on('value', s => { renderShiftLogs(s.val()); filterStats(); });
         }
     }
 
     function accessAdmin() {
-        if(prompt("Nhập mật khẩu quản lý:") === "1905") {
-            isAdmin = true;
-            document.getElementById('authOverlay').style.display = 'none';
-            loadShiftLogsData();
-            showTab('admin');
-        } else {
-            alert("Sai mật khẩu!");
+        const role = getUserRole();
+        if (role !== "Quản lý" && !isAdmin) {
+            alert("Chỉ tài khoản quản lý / chủ cửa hàng mới có quyền mở mục Quản lý!");
+            return;
         }
+        isAdmin = true;
+        const authOv = document.getElementById('authOverlay');
+        if (authOv) authOv.style.display = 'none';
+        loadShiftLogsData();
+        showTab('admin');
     }
 
-    function startShift() { db.ref('active_shift').set({start: new Date().toLocaleString('vi-VN'), revenue: 0, revenueCash: 0, revenueTransfer: 0}); }
+    function startShift() { storeRef('active_shift').set({start: new Date().toLocaleString('vi-VN'), revenue: 0, revenueCash: 0, revenueTransfer: 0}); }
 
     function endShift() {
         if(!currentShift) return alert("Không có ca nào đang mở!");
         if(confirm("Xác nhận CHỐT CA? Toàn bộ bàn sẽ được dọn trống và dữ liệu sẽ được xuất ra báo cáo Google Sheets.")) {
-         let chiTietHoaDon = "";
-        if (currentShift.history) {
-            Object.values(currentShift.history).forEach((bill) => {
-                bill.items.forEach(it => {
-                    let thanhTienMon = it.price * it.qty;
-                    chiTietHoaDon += `${it.fName} x${it.qty}  ${thanhTienMon.toLocaleString()}đ\n`;
+            let chiTietHoaDon = "";
+            if (currentShift.history) {
+                Object.values(currentShift.history).forEach((bill) => {
+                    (bill.items || []).forEach(it => {
+                        let thanhTienMon = it.price * it.qty;
+                        chiTietHoaDon += `${it.fName} x${it.qty}  ${thanhTienMon.toLocaleString()}đ\n`;
+                    });
                 });
-            });
-            chiTietHoaDon = chiTietHoaDon.trim();
-        } else {
-            chiTietHoaDon = "Không có đơn hàng";
-        }
+                chiTietHoaDon = chiTietHoaDon.trim();
+            } else {
+                chiTietHoaDon = "Không có đơn hàng";
+            }
 
             const payload = {
                 ngayThang: new Date().toLocaleDateString('vi-VN'),
@@ -712,14 +1515,16 @@
                 soTien: currentShift.revenue || 0
             };
 
-            const scriptUrl = "https://script.google.com/macros/s/AKfycby5W6tkb__SKAfpcUGXdDTjwKmWAS_vg02PM0993YcbNdrtQAqZZxK7FBbU0OM0Yht1/exec";
+            const scriptUrl = (currentStoreData && currentStoreData.googleSheetUrl) || currentGoogleSheetUrl || "https://script.google.com/macros/s/AKfycby5W6tkb__SKAfpcUGXdDTjwKmWAS_vg02PM0993YcbNdrtQAqZZxK7FBbU0OM0Yht1/exec";
 
-            fetch(scriptUrl, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }).then(() => console.log("Đã gửi lệnh xuất Sheets")).catch(e => alert("Lỗi gửi Sheets: " + e));
+            if (scriptUrl && scriptUrl.trim()) {
+                fetch(scriptUrl.trim(), {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).then(() => console.log("Đã gửi lệnh xuất Sheets")).catch(e => console.warn("Lỗi gửi Sheets: " + e));
+            }
 
             const data = {
                 start: currentShift.start, end: new Date().toLocaleTimeString('vi-VN'),
@@ -729,15 +1534,15 @@
                 revenueTransfer: currentShift.revenueTransfer || 0,
                 timestamp: Date.now()
             };
-            db.ref('shift_logs').push(data).then(() => {
-                db.ref('active_shift').remove();
-                db.ref('tables').remove();
+            storeRef('shift_logs').push(data).then(() => {
+                storeRef('active_shift').remove();
+                storeRef('tables').remove();
                 alert("Đã chốt ca thành công!");
             });
         }
     }
 
-    function deleteShiftLog(key) { if(confirm("Bạn muốn xóa vĩnh viễn lịch sử ca này?")) db.ref('shift_logs/' + key).remove(); }
+    function deleteShiftLog(key) { if(confirm("Bạn muốn xóa vĩnh viễn lịch sử ca này?")) storeRef('shift_logs/' + key).remove(); }
 
     function renderShiftLogs(logs) {
         const list = document.getElementById('shiftLogsList'); list.innerHTML = '';
@@ -749,15 +1554,17 @@
     }
 
     function exportShiftLogs() {
-        let pass = prompt("Nhập mật khẩu quản lý để tải dữ liệu lịch sử ca:");
-        if (pass === null) return;
-
-        if (pass !== "1905") {
-            alert("Sai mật khẩu! Không thể tải dữ liệu.");
-            return;
+        const role = getUserRole();
+        if (role !== "Quản lý" && !isAdmin) {
+            let pass = prompt("Nhập mật khẩu quản lý để tải dữ liệu lịch sử ca:");
+            if (pass === null) return;
+            if (pass !== "1905" && (!currentStoreData || pass !== currentStoreData.password)) {
+                alert("Sai mật khẩu! Không thể tải dữ liệu.");
+                return;
+            }
         }
 
-        db.ref('shift_logs').once('value').then(snapshot => {
+        storeRef('shift_logs').once('value').then(snapshot => {
             const logs = snapshot.val();
             if (!logs) {
                 alert("Chưa có dữ liệu lịch sử ca nào để tải!");
@@ -782,7 +1589,7 @@
             const link = document.createElement("a");
             const url = URL.createObjectURL(blob);
             link.setAttribute("href", url);
-            link.setAttribute("download", `Lich_Su_Ca_UyenCoffee_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`);
+            link.setAttribute("download", `Lich_Su_Ca_POS_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
@@ -804,11 +1611,17 @@
             let itemsHtml = (bill.items || []).map((it, idx) => {
                 return `<div class="detail-item"><span><b>${it.qty}x</b> ${it.fName}</span><span>${(it.price * it.qty).toLocaleString()}đ <span style="color:var(--danger); cursor:pointer; font-weight:bold; margin-left:5px;" onclick="deleteItemInBill('${key}', ${idx})"> (X)</span></span></div>`;
             }).join('');
-            list.innerHTML += `<div class="bill-history-card"><div style="margin-bottom:8px;"><b>Bàn ${bill.table} (${timeDetail})${staffDisplay} - <span style="color:${bill.method === 'transfer' ? 'var(--primary)' : 'var(--success)'}">${bill.method === 'transfer' ? '💳 CK' : '💵 TM'}</span></b><button style="float:right; color:white; background:var(--danger); border:none; border-radius:4px; font-weight:bold; padding:4px 8px; font-size:10px;" onclick="deleteBill('${key}')">XÓA</button></div>${itemsHtml}<div style="color:var(--primary); font-weight:900; margin-top:10px; border-top:1px solid #eee; padding-top:8px; font-size:15px;">Tổng: ${bill.total.toLocaleString()}đ</div></div>`;
+            list.innerHTML += `<div class="bill-history-card"><div style="margin-bottom:8px;"><b>Bàn ${bill.table} (${timeDetail})${staffDisplay} - <span style="color:${bill.method === 'transfer' ? 'var(--primary)' : 'var(--success)'}">${bill.method === 'transfer' ? '💳 CK' : '💵 TM'}</span></b><div style="float:right; display:flex; gap:5px;"><button style="color:white; background:var(--primary); border:none; border-radius:4px; font-weight:bold; padding:4px 8px; font-size:10px; cursor:pointer;" onclick="reprintBill('${key}')">IN LẠI</button><button style="color:white; background:var(--danger); border:none; border-radius:4px; font-weight:bold; padding:4px 8px; font-size:10px; cursor:pointer;" onclick="deleteBill('${key}')">XÓA</button></div></div>${itemsHtml}<div style="color:var(--primary); font-weight:900; margin-top:10px; border-top:1px solid #eee; padding-top:8px; font-size:15px;">Tổng: ${bill.total.toLocaleString()}đ</div></div>`;
         });
     }
 
     function deleteItemInBill(billKey, itemIdx) {
+        // Ràng buộc quyền quản lý mới được xóa món trong bill đã thanh toán
+        const role = getUserRole();
+        if (role !== 'Quản lý') {
+            return alert("Chỉ có tài khoản Quản lý mới có quyền xóa món khỏi hóa đơn đã thanh toán!");
+        }
+
         if (!currentShift || !currentShift.history || !currentShift.history[billKey]) return;
         const bill = currentShift.history[billKey];
         const item = bill.items ? bill.items[itemIdx] : null;
@@ -831,10 +1644,46 @@
         updates['active_shift/revenue'] = currentShift.revenue - subAmount;
         if(method === 'cash') updates['active_shift/revenueCash'] = (currentShift.revenueCash||0) - subAmount;
         else updates['active_shift/revenueTransfer'] = (currentShift.revenueTransfer||0) - subAmount;
-        db.ref().update(updates);
+        storeUpdate(updates);
+    }
+
+    function reprintBill(key) {
+        if (!currentShift || !currentShift.history || !currentShift.history[key]) return;
+        const bill = currentShift.history[key];
+
+        let timeDetail = `Vào: ${bill.startTime || 'N/A'} - Ra: ${bill.payTime || bill.time || 'N/A'}`;
+        let staffDisplay = bill.payStaff || bill.staff || "Admin";
+
+        if (!confirm(`XÁC NHẬN IN LẠI HÓA ĐƠN?\n\n- Bàn: ${bill.table}\n- Thời gian: ${timeDetail}\n- Thu ngân: ${staffDisplay}\n- Tổng tiền: ${(bill.total || 0).toLocaleString()}đ\n\nBạn có chắc chắn muốn gửi lệnh in lại hóa đơn này không?`)) {
+            return;
+        }
+
+        let receiptPayload = {
+            type: 'receipt',
+            isReprint: true,
+            table: bill.table,
+            items: bill.items || [],
+            total: bill.total || 0,
+            timestamp: Date.now(),
+            printed: false,
+            staffName: staffDisplay,
+            staff: staffDisplay
+        };
+
+        storeRef('orders').push(receiptPayload).then(() => {
+            alert("Đã gửi yêu cầu in lại hóa đơn Bàn " + bill.table + " thành công!");
+        }).catch(err => {
+            alert("Lỗi khi gửi yêu cầu in lại hóa đơn: " + err.message);
+        });
     }
 
     function deleteBill(key) {
+        // Ràng buộc quyền quản lý mới được xóa bill đã thanh toán
+        const role = getUserRole();
+        if (role !== 'Quản lý') {
+            return alert("Chỉ có tài khoản Quản lý mới có quyền xóa hóa đơn đã thanh toán!");
+        }
+
         if (!currentShift || !currentShift.history || !currentShift.history[key]) return;
         const bill = currentShift.history[key];
         const method = bill.method || 'cash';
@@ -852,13 +1701,13 @@
         if(method === 'cash') updates['active_shift/revenueCash'] = (currentShift.revenueCash||0) - bill.total;
         else updates['active_shift/revenueTransfer'] = (currentShift.revenueTransfer||0) - bill.total;
         updates['active_shift/history/' + key] = null;
-        db.ref().update(updates);
+        storeUpdate(updates);
     }
 
     function filterStats() {
         let from = document.getElementById('dateFrom').value, to = document.getElementById('dateTo').value;
         if(!from || !to) return;
-        db.ref('shift_logs').once('value', s => {
+        storeRef('shift_logs').once('value', s => {
             let total = 0;
             Object.values(s.val() || {}).forEach(log => {
                 let p = log.date.split('/'), logD = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
@@ -870,7 +1719,17 @@
 
     let currentTableSubTab = 'tables';
 
+    function hasUnconfirmedItems() {
+        if (!curTable || !tablesData[curTable]) return false;
+        let items = tablesData[curTable].items || [];
+        return items.some(it => !it.sent);
+    }
+
     function switchTableSubTab(sub) {
+        if (curTable && hasUnconfirmedItems()) {
+            alert("Vui lòng bấm XÁC NHẬN đơn hàng trước khi chuyển tab!");
+            return;
+        }
         currentTableSubTab = sub;
         const btnTables = document.getElementById('subtab-btn-tables');
         const btnBills = document.getElementById('subtab-btn-bills');
@@ -889,11 +1748,16 @@
         renderTables();
     }
 
-    function closeTableOrderView() {
+    function closeTableOrderView(force = false) {
+        if (!force && curTable && hasUnconfirmedItems()) {
+            alert("Vui lòng bấm XÁC NHẬN đơn hàng trước khi thoát ra khỏi bàn!");
+            return false;
+        }
         document.getElementById('table-order-view').style.display = 'none';
         document.getElementById('list-tables').style.display = 'grid';
         document.getElementById('table-subtabs').style.display = 'flex';
         curTable = null;
+        return true;
     }
 
     function renderTables() {
@@ -908,12 +1772,12 @@
                 t.items.forEach(item => { tableTotal += item.price * item.qty; });
             }
             if (tableTotal === 0 && t.status !== 'white') {
-                db.ref('tables/' + i).update({ status: 'white', items: null, startTime: null });
+                storeRef('tables/' + i).update({ status: 'white', items: null, startTime: null });
                 t.status = 'white';
             }
 
             if (currentTableSubTab === 'bills' && tableTotal === 0) {
-                continue; // Skip unoccupied tables when in "Hóa đơn" sub-tab
+                continue;
             }
             countVisible++;
 
@@ -938,9 +1802,13 @@
         }
     }
 
-    let currentOrderSubView = 'menu'; // 'menu' or 'bill'
+    let currentOrderSubView = 'menu';
 
     function selectTable(i) {
+        if (curTable && curTable !== i && hasUnconfirmedItems()) {
+            alert("Vui lòng bấm XÁC NHẬN đơn hàng trước khi chọn bàn khác!");
+            return;
+        }
         curTable = i;
         document.getElementById('orderHeaderTitle').innerText = "BÀN " + i + " - MENU";
         document.getElementById('list-tables').style.display = 'none';
@@ -1004,7 +1872,6 @@
             });
         });
 
-        // Add "Tất cả" option
         sb.innerHTML += `<div class="cat-btn active" onclick="scrollToCat('cat-all', this)">Tất cả</div>`;
 
         let isFirst = true;
@@ -1065,8 +1932,8 @@
 
         if (!hasHotCold) {
             let items = tablesData[curTable]?.items || [];
-            items.unshift({fName: name, price: price, qty: 1, done: false, orderStaff: staffName});
-            db.ref('tables/'+curTable).update({ items: items, startTime: tablesData[curTable]?.startTime || new Date().toLocaleTimeString('vi-VN'), status: tablesData[curTable]?.status === 'green' ? 'green' : 'white' });
+            items.unshift({fName: name, price: price, qty: 1, done: false, sent: false, orderStaff: staffName});
+            storeRef('tables/'+curTable).update({ items: items, startTime: tablesData[curTable]?.startTime || new Date().toLocaleTimeString('vi-VN'), status: tablesData[curTable]?.status === 'green' ? 'green' : 'white' });
             return;
         }
 
@@ -1081,8 +1948,8 @@
         let note = document.getElementById('optNote').value.trim();
         let fullName = `${tempItem.name} (${curType})${note ? ': ' + note : ''}`;
         let items = tablesData[curTable]?.items || [];
-        items.unshift({fName: fullName, price: tempItem.price, qty: 1, done: false, orderStaff: tempItem.staffName || "Admin"});
-        db.ref('tables/'+curTable).update({ items: items, startTime: tablesData[curTable]?.startTime || new Date().toLocaleTimeString('vi-VN'), status: tablesData[curTable]?.status === 'green' ? 'green' : 'white' });
+        items.unshift({fName: fullName, price: tempItem.price, qty: 1, done: false, sent: false, orderStaff: tempItem.staffName || "Admin"});
+        storeRef('tables/'+curTable).update({ items: items, startTime: tablesData[curTable]?.startTime || new Date().toLocaleTimeString('vi-VN'), status: tablesData[curTable]?.status === 'green' ? 'green' : 'white' });
 
         document.getElementById('optNote').value = '';
         closeModal('optModal');
@@ -1107,12 +1974,80 @@
         if (lblTotalSum) lblTotalSum.innerText = totalFormatted;
     }
 
-    function handleConfirm() { if(!curTable) return; db.ref('tables/'+curTable).update({status: 'red'}); closeTableOrderView(); renderTables(); }
-    function setStatus(s) { if(!curTable) return; let items = tablesData[curTable].items || []; items.forEach(it => it.done = true); db.ref('tables/'+curTable).update({items: items, status: s}); closeTableOrderView(); renderTables(); }
+    function handleConfirm() { 
+        if(!curTable) return; 
+
+        let tableData = tablesData[curTable];
+        let items = tableData?.items || [];
+
+        items.forEach(it => {
+            if (it.sent === undefined) it.sent = true;
+        });
+
+        let newItems = items.filter(it => it.sent === false);
+
+        if (newItems.length === 0) {
+            alert("Không có món mới nào cần xác nhận in!");
+            return;
+        }
+
+        storeRef('tables/'+curTable).update({status: 'red'});
+
+        let staffName = "Admin";
+        const myDevId = localStorage.getItem('uc_dev_id');
+        if (myDevId && allDevicesData[myDevId] && allDevicesData[myDevId].name) {
+            staffName = allDevicesData[myDevId].name;
+        }
+
+        let preparedItems = newItems.map(it => ({
+            ...it,
+            printedItem: false
+        }));
+
+        if (isKitchenPrintEnabled) {
+            let orderPayload = {
+                type: 'kitchen',
+                table: curTable,
+                items: preparedItems,
+                timestamp: Date.now(),
+                printed: false,
+                staffName: staffName,
+                staff: staffName
+            };
+            storeRef('orders').push(orderPayload);
+        }
+
+        items.forEach(it => {
+            it.sent = true;
+        });
+
+        storeRef('tables/' + curTable + '/items').set(items).then(() => {
+            closeTableOrderView(); 
+            renderTables(); 
+        });
+    }
+
+    function setStatus(s) {
+        if(!curTable) return;
+        if(hasUnconfirmedItems()) {
+            alert("Vui lòng bấm XÁC NHẬN đơn hàng trước khi bấm XONG HẾT!");
+            return;
+        }
+        let items = tablesData[curTable].items || [];
+        items.forEach(it => it.done = true);
+        storeRef('tables/'+curTable).update({items: items, status: s});
+        closeTableOrderView(true);
+        renderTables();
+    }
 
     function openPayModal() {
         if(!curTable || !tablesData[curTable]) return;
         if(!checkShiftRequired()) return;
+
+        if(hasUnconfirmedItems()) {
+            alert("Vui lòng bấm XÁC NHẬN đơn hàng trước khi thanh toán!");
+            return;
+        }
 
         const role = getUserRole();
         if (role === 'Phục vụ') {
@@ -1126,7 +2061,7 @@
         setPayMethod('cash');
     }
 
-    function handlePay() {
+    function handlePay(shouldPrint) {
         if(!checkShiftRequired()) return;
         const total = parseInt(document.getElementById('payTotal').innerText.replace(/\D/g,''));
 
@@ -1156,9 +2091,63 @@
         updates['active_shift/revenue'] = (currentShift.revenue||0) + total;
         if(payMethod === 'cash') updates['active_shift/revenueCash'] = (currentShift.revenueCash||0) + total;
         else updates['active_shift/revenueTransfer'] = (currentShift.revenueTransfer||0) + total;
-        db.ref().update(updates);
-        db.ref('tables/'+curTable).remove();
-        closeModal('payModal'); closeTableOrderView(); renderTables();
+        
+        storeUpdate(updates);
+
+        if (shouldPrint) {
+            let receiptPayload = {
+                type: 'receipt', 
+                table: curTable,
+                items: tableInfo.items || [],
+                total: total,
+                timestamp: Date.now(),
+                printed: false,
+                staffName: staffName,
+                staff: staffName
+            };
+            storeRef('orders').push(receiptPayload);
+        }
+
+        storeRef('tables/'+curTable).remove();
+        closeModal('payModal'); 
+        closeTableOrderView(); 
+        renderTables(); 
+    }
+
+    function printTempBill() {
+        if (!curTable) return alert("Chưa chọn bàn!");
+        const tableInfo = tablesData[curTable] || {};
+        const items = tableInfo.items || [];
+        if (items.length === 0) {
+            return alert("Bàn " + curTable + " chưa có món nào để in tạm tính!");
+        }
+
+        let staffName = "Admin";
+        const myDevId = localStorage.getItem('uc_dev_id');
+        if (myDevId && allDevicesData && allDevicesData[myDevId] && allDevicesData[myDevId].name) {
+            staffName = allDevicesData[myDevId].name;
+        }
+
+        let total = 0;
+        items.forEach(it => { total += (it.price * it.qty); });
+
+        let receiptPayload = {
+            type: 'receipt',
+            isTemp: true,
+            table: curTable,
+            items: items,
+            total: total,
+            timestamp: Date.now(),
+            printed: false,
+            staffName: staffName,
+            staff: staffName
+        };
+
+        storeRef('orders').push(receiptPayload).then(() => {
+            alert("Đã gửi yêu cầu in tạm tính Bàn " + curTable + " thành công!");
+        }).catch(err => {
+            alert("Lỗi khi gửi yêu cầu in tạm tính: " + err.message);
+        });
     }
 
     function openQtyEdit(idx) {
@@ -1190,7 +2179,8 @@
         let newQty = parseInt(document.getElementById('qtyVal').innerText) || 0;
         let addedNote = document.getElementById('editItemNote').value.trim();
 
-        if (newQty < oldQty) {
+        // YÊU CẦU 2: Chỉ món nào đã xác nhận/đã in (sent === true) khi xóa hoặc giảm mới cần nhập lý do
+        if (item.sent && newQty < oldQty) {
             let isDelete = (newQty === 0);
             let promptMsg = isDelete ? `Nhập lý do xóa món ${item.fName}:` : `Nhập lý do giảm số lượng món ${item.fName} (${oldQty}x ➔ ${newQty}x):`;
             let reason = prompt(promptMsg);
@@ -1207,14 +2197,14 @@
         if (newQty === 0) {
             items.splice(editIdx, 1);
             if (items.length === 0) {
-                db.ref('tables/' + curTable).remove().then(() => {
+                storeRef('tables/' + curTable).remove().then(() => {
                     closeModal('qtyModal');
                     renderBill();
                     renderTables();
                 });
                 return;
             } else {
-                db.ref('tables/' + curTable).update({ items: items }).then(() => {
+                storeRef('tables/' + curTable).update({ items: items }).then(() => {
                     closeModal('qtyModal');
                     renderBill();
                 });
@@ -1241,6 +2231,7 @@
                     price: item.price,
                     qty: newQty - oldQty,
                     done: false,
+                    sent: false,
                     note: addedNote,
                     orderStaff: item.orderStaff || "Admin"
                 };
@@ -1256,7 +2247,7 @@
             item.done = false;
         }
 
-        db.ref('tables/' + curTable).update({ items: items }).then(() => {
+        storeRef('tables/' + curTable).update({ items: items }).then(() => {
             closeModal('qtyModal');
             renderBill();
         });
@@ -1272,7 +2263,8 @@
         let newQty = parseInt(document.getElementById('qtyVal').innerText) || 0;
         let addedNote = document.getElementById('editItemNote').value.trim();
 
-        if (newQty < oldQty) {
+        // YÊU CẦU 2: Chỉ món đã xác nhận (sent === true) mới cần nhập lý do khi giảm/xóa
+        if (item.sent && newQty < oldQty) {
             let isDelete = (newQty === 0);
             let promptMsg = isDelete ? `Nhập lý do xóa món ${item.fName}:` : `Nhập lý do giảm số lượng món ${item.fName} (${oldQty}x ➔ ${newQty}x):`;
             let reason = prompt(promptMsg);
@@ -1289,14 +2281,14 @@
         if (newQty === 0) {
             items.splice(editIdx, 1);
             if (items.length === 0) {
-                db.ref('tables/' + curTable).remove().then(() => {
+                storeRef('tables/' + curTable).remove().then(() => {
                     closeModal('qtyModal');
                     renderBill();
                     renderTables();
                 });
                 return;
             } else {
-                db.ref('tables/' + curTable).update({ items: items }).then(() => {
+                storeRef('tables/' + curTable).update({ items: items }).then(() => {
                     closeModal('qtyModal');
                     renderBill();
                 });
@@ -1315,7 +2307,7 @@
         }
         item.done = !item.done;
 
-        db.ref('tables/' + curTable).update({ items: items }).then(() => {
+        storeRef('tables/' + curTable).update({ items: items }).then(() => {
             closeModal('qtyModal');
             renderBill();
         });
@@ -1345,40 +2337,50 @@
     function handleMoveOrMergeTable() {
         let targetTable = parseInt(document.getElementById('selectToTable').value);
         let sourceTable = curTable;
+        if (!sourceTable || !targetTable) return;
+
+        let sourceData = tablesData[sourceTable] || {};
+        let targetData = tablesData[targetTable] || {};
 
         if (currentMoveMode === 'move') {
-            db.ref('tables/' + targetTable).set(tablesData[sourceTable]).then(() => {
-                db.ref('tables/' + sourceTable).remove();
-                curTable = targetTable;
-                document.getElementById('lblTable').innerText = "BÀN " + curTable;
+            storeRef('tables/' + targetTable).set(sourceData).then(() => {
+                storeRef('tables/' + sourceTable).remove();
                 closeModal('moveTableModal');
+                closeTableOrderView(true);
                 renderTables();
-                renderBill();
             });
         } else {
-            let sourceItems = tablesData[sourceTable]?.items || [];
-            let targetItems = tablesData[targetTable]?.items || [];
+            let sourceItems = sourceData.items || [];
+            let targetItems = targetData.items || [];
 
             let mergedItems = targetItems.concat(sourceItems);
-            let startTime = tablesData[targetTable]?.startTime || tablesData[sourceTable]?.startTime || new Date().toISOString();
-            let status = (tablesData[targetTable]?.status === 'red' || tablesData[sourceTable]?.status === 'red') ? 'red' : (tablesData[targetTable]?.status || tablesData[sourceTable]?.status || 'white');
+            let startTime = targetData.startTime || sourceData.startTime || new Date().toISOString();
+            let status = (targetData.status === 'red' || sourceData.status === 'red') ? 'red' : (targetData.status || sourceData.status || 'white');
+            let needsServing = targetData.needsServing || sourceData.needsServing || false;
 
-            db.ref('tables/' + targetTable).set({
+            storeRef('tables/' + targetTable).set({
                 items: mergedItems,
                 startTime: startTime,
-                status: status
+                status: status,
+                needsServing: needsServing
             }).then(() => {
-                db.ref('tables/' + sourceTable).remove();
-                curTable = targetTable;
-                document.getElementById('lblTable').innerText = "BÀN " + curTable;
+                storeRef('tables/' + sourceTable).remove();
                 closeModal('moveTableModal');
+                closeTableOrderView(true);
                 renderTables();
-                renderBill();
             });
         }
     }
 
-    function setPayMethod(m) { payMethod = m; document.getElementById('payCashBtn').className = m==='cash'?'opt-btn active':'opt-btn'; document.getElementById('payTransferBtn').className = m==='transfer'?'opt-btn active':'opt-btn'; document.getElementById('cashSection').style.display = m==='cash'?'block':'none'; document.getElementById('transferSection').style.display = m==='transfer'?'block':'none'; document.getElementById('qrDisplay').style.display = (m==='transfer' && qrUrl)?'block':'none'; }
+    function setPayMethod(m) {
+        payMethod = m;
+        document.getElementById('payCashBtn').className = m==='cash'?'opt-btn active':'opt-btn';
+        document.getElementById('payTransferBtn').className = m==='transfer'?'opt-btn active':'opt-btn';
+        document.getElementById('cashSection').style.display = m==='cash'?'block':'none';
+        document.getElementById('transferSection').style.display = m==='transfer'?'block':'none';
+        updateQRDisplay();
+    }
+
     function updateShiftUI() {
         const s = document.getElementById('shiftSummary');
         if(currentShift) {
@@ -1386,13 +2388,26 @@
             if (currentShift.history) {
                 Object.values(currentShift.history).forEach(bill => {
                     let staffName = bill.payStaff || bill.staff || "Chưa xác định";
-                    staffRevenue[staffName] = (staffRevenue[staffName] || 0) + (bill.total || 0);
+                    if (!staffRevenue[staffName]) {
+                        staffRevenue[staffName] = { total: 0, cash: 0, transfer: 0 };
+                    }
+                    let amt = bill.total || 0;
+                    staffRevenue[staffName].total += amt;
+                    if (bill.method === 'transfer') {
+                        staffRevenue[staffName].transfer += amt;
+                    } else {
+                        staffRevenue[staffName].cash += amt;
+                    }
                 });
             }
 
             let staffBreakdownHtml = "";
             Object.keys(staffRevenue).forEach(staff => {
-                staffBreakdownHtml += `<div style="font-size:14px; font-weight:bold; color:var(--dark); margin-top:3px;">${staff} : ${staffRevenue[staff].toLocaleString()}đ</div>`;
+                let stat = staffRevenue[staff];
+                staffBreakdownHtml += `<div style="font-size:14px; font-weight:bold; color:var(--dark); margin-top:4px;">
+                    • ${staff} : <span style="color:var(--dark);">${stat.total.toLocaleString()}đ</span>
+                    <span style="font-size:12px; font-weight:normal; color:#555;">(💵 TM: <b style="color:var(--success);">${stat.cash.toLocaleString()}đ</b> | 💳 CK: <b style="color:var(--primary);">${stat.transfer.toLocaleString()}đ</b>)</span>
+                </div>`;
             });
 
             if (!staffBreakdownHtml) {
@@ -1404,9 +2419,32 @@
         } else { s.innerText = "Chưa mở ca"; document.getElementById('btnOpen').style.display='block'; document.getElementById('btnClose').style.display='none'; }
     }
 
-    function saveQR() { db.ref('settings/qrUrl').set(document.getElementById('qrUrlInput').value).then(() => alert("Đã lưu!")); }
+    function saveQR() {
+        let u1 = document.getElementById('qrUrlInput').value.trim();
+        storeRef('settings').update({
+            qrUrl: u1
+        }).then(() => alert("Đã lưu link ảnh QR thanh toán mặc định!"));
+    }
+
+    function saveGoogleSheetUrl() {
+        let url = document.getElementById('googleSheetUrlInput').value.trim();
+        currentGoogleSheetUrl = url;
+        if (currentStoreData) currentStoreData.googleSheetUrl = url;
+        Promise.all([
+            db.ref('settings/stores/' + currentStoreId).update({ googleSheetUrl: url }),
+            storeRef('settings').update({ googleSheetUrl: url })
+        ]).then(() => {
+            alert("Đã lưu link Google Sheet thành công!");
+        }).catch(err => {
+            alert("Lỗi lưu link Google Sheet: " + err.message);
+        });
+    }
 
     function showTab(id) {
+        if (curTable && hasUnconfirmedItems()) {
+            alert("Vui lòng bấm XÁC NHẬN đơn hàng trước khi chuyển trang!");
+            return;
+        }
         currentTab = id;
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.m-btn').forEach(b => b.classList.remove('active'));
@@ -1415,7 +2453,7 @@
         if(document.getElementById('btn-tab-'+id)) document.getElementById('btn-tab-'+id).classList.add('active');
 
         if(id === 'tables') {
-            closeTableOrderView();
+            closeTableOrderView(true);
             renderTables();
         } else if(id === 'pos') {
             showTab('tables');
@@ -1434,7 +2472,7 @@
         const c = document.getElementById('inCategory').value || 'Khác';
         const hc = document.getElementById('inHasHotCold').checked;
         if(n && p) {
-            db.ref('menu').push({name:n, price:p, category: c, hasHotCold: hc, soldOut: false});
+            storeRef('menu').push({name:n, price:p, category: c, hasHotCold: hc, soldOut: false});
             document.getElementById('inName').value='';
             document.getElementById('inPrice').value='';
             document.getElementById('inCategory').value='';
@@ -1458,14 +2496,14 @@
                 <div style="display:flex; gap:5px;">
                     <button onclick="toggleSoldOut('${k}', ${!isSoldOut})" style="color:white; background:${isSoldOut ? 'var(--success)' : 'var(--warning)'}; border:none; border-radius:6px; padding:6px 10px; font-weight:bold; font-size:11px;">${isSoldOut ? 'Mở lại' : 'Báo hết'}</button>
                     <button onclick="openEditMenu('${k}')" style="color:white; background:var(--dark); border:none; border-radius:6px; padding:6px 10px; font-weight:bold; font-size:11px;">Sửa</button>
-                    <button onclick="db.ref('menu/${k}').remove()" style="color:white; background:var(--danger); border:none; border-radius:6px; padding:6px 10px; font-weight:bold; font-size:11px;">Xóa</button>
+                    <button onclick="storeRef('menu/${k}').remove()" style="color:white; background:var(--danger); border:none; border-radius:6px; padding:6px 10px; font-weight:bold; font-size:11px;">Xóa</button>
                 </div>
-            </div>`;
+            `;
         });
     }
 
     function toggleSoldOut(key, status) {
-        db.ref('menu/' + key).update({ soldOut: status });
+        storeRef('menu/' + key).update({ soldOut: status });
     }
 
     function openEditMenu(key) {
@@ -1485,7 +2523,7 @@
         let c = document.getElementById('editMenuCategory').value || 'Khác';
         let hc = document.getElementById('editMenuHasHotCold').checked;
         if(n && p) {
-            db.ref('menu/' + key).update({name: n, price: p, category: c, hasHotCold: hc}).then(() => {
+            storeRef('menu/' + key).update({name: n, price: p, category: c, hasHotCold: hc}).then(() => {
                 closeModal('editMenuModal');
             });
         } else {
@@ -1536,7 +2574,7 @@
             return;
         }
 
-        activeTaskListenerRef = db.ref('tasks/' + targetEmployeeKey);
+        activeTaskListenerRef = storeRef('tasks/' + targetEmployeeKey);
         activeTaskListenerRef.on('value', s => {
             const tasks = s.val() || {};
 
@@ -1554,7 +2592,7 @@
             });
 
             if (hasUpdates) {
-                db.ref('tasks/' + targetEmployeeKey).update(updates);
+                storeRef('tasks/' + targetEmployeeKey).update(updates);
                 return;
             }
 
@@ -1603,7 +2641,7 @@
             dueDate = d.getTime() + ((freq - 1) * 86400000);
         }
 
-        db.ref('tasks/' + targetEmployeeKey).push({
+        storeRef('tasks/' + targetEmployeeKey).push({
             text: content,
             important: isImportant,
             frequency: freq,
@@ -1619,11 +2657,10 @@
 
     function deleteTaskByManager(employeeKey, taskId) {
         if(confirm("Bạn có chắc chắn muốn xóa bỏ công việc này?")) {
-            db.ref(`tasks/${employeeKey}/${taskId}`).remove();
+            storeRef(`tasks/${employeeKey}/${taskId}`).remove();
         }
     }
 
-    /* === THÊM CÁC HÀM XỬ LÝ CHUYỂN VIỆC === */
     function openTransferTaskModal() {
         const targetId = document.getElementById('taskEmployeeSelect').value;
         if(!targetId) return alert("Vui lòng đăng ký và chọn nhân viên sẽ NHẬN việc trước!");
@@ -1634,7 +2671,7 @@
         sourceSelect.innerHTML = '<option value="">-- Chọn nhân viên để lấy việc --</option>';
 
         Object.keys(allDevicesData).forEach(key => {
-            if (key !== targetId) { // Không hiển thị chính nhân viên đang chọn
+            if (key !== targetId) {
                 sourceSelect.innerHTML += `<option value="${key}">${allDevicesData[key].name}</option>`;
             }
         });
@@ -1648,8 +2685,7 @@
 
         if(!sourceId) return alert("Vui lòng chọn nhân viên nguồn!");
 
-        // Lấy việc từ nhân viên nguồn
-        db.ref('tasks/' + sourceId).once('value').then(snapshot => {
+        storeRef('tasks/' + sourceId).once('value').then(snapshot => {
             const sourceTasks = snapshot.val();
             if(!sourceTasks) {
                 alert("Nhân viên này không có công việc nào để chuyển!");
@@ -1659,22 +2695,20 @@
             if(confirm(`Xác nhận chuyển toàn bộ việc? Việc của nhân viên cũ sẽ bị xóa hết.`)) {
                 let updates = {};
 
-                // Copy sang nhân viên mới và xóa ở nhân viên cũ
                 Object.keys(sourceTasks).forEach(taskId => {
-                    let newKey = db.ref().child(`tasks/${targetId}`).push().key; // Sinh ID mới cho an toàn
+                    let newKey = storeRef(`tasks/${targetId}`).push().key;
                     updates[`tasks/${targetId}/${newKey}`] = sourceTasks[taskId];
-                    updates[`tasks/${sourceId}/${taskId}`] = null; // Xóa khỏi nguồn
+                    updates[`tasks/${sourceId}/${taskId}`] = null;
                 });
 
-                db.ref().update(updates).then(() => {
+                storeUpdate(updates).then(() => {
                     alert("Chuyển việc thành công!");
                     closeModal('transferTaskModal');
-                    loadTasksForManager(); // Tải lại danh sách
+                    loadTasksForManager();
                 });
             }
         });
     }
-    /* ================================== */
 
     function loadTasksForEmployee() {
         const myDevId = localStorage.getItem('uc_dev_id');
@@ -1684,7 +2718,7 @@
         if(activeTaskListenerRef) activeTaskListenerRef.off();
         if(!myDevId) return;
 
-        activeTaskListenerRef = db.ref('tasks/' + myDevId);
+        activeTaskListenerRef = storeRef('tasks/' + myDevId);
         activeTaskListenerRef.on('value', s => {
             const tasks = s.val() || {};
 
@@ -1702,7 +2736,7 @@
             });
 
             if (hasUpdates) {
-                db.ref('tasks/' + myDevId).update(updates);
+                storeRef('tasks/' + myDevId).update(updates);
                 return;
             }
 
@@ -1744,7 +2778,7 @@
             updates.dueDate = d.getTime();
         }
 
-        db.ref(`tasks/${myDevId}/${taskId}`).update(updates);
+        storeRef(`tasks/${myDevId}/${taskId}`).update(updates);
     }
 
     let targetServeTable = null;
@@ -1757,7 +2791,7 @@
 
     function setServeStatus(needsServing) {
         if(!targetServeTable) return;
-        db.ref('tables/' + targetServeTable).update({ needsServing: needsServing }).then(() => {
+        storeRef('tables/' + targetServeTable).update({ needsServing: needsServing }).then(() => {
             closeModal('serveModal');
         });
     }
@@ -1765,10 +2799,8 @@
     document.addEventListener("visibilitychange", function() {
         if (document.visibilityState === 'hidden') {
             firebase.database().goOffline();
-            console.log("Tab ẩn -> Đã ngắt kết nối Firebase để tối ưu.");
         } else {
             firebase.database().goOnline();
-            console.log("Tab hiện -> Đã kết nối lại Firebase.");
         }
     });
 
