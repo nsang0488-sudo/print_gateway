@@ -1,17 +1,15 @@
-# print_gateway
+# POS Web App
 
-A new Flutter project.
+Ứng dụng web POS bán hàng chuyên nghiệp, hỗ trợ đa cửa hàng và đồng bộ dữ liệu Realtime Database với Firebase.
 
-## Getting Started
+## Cài đặt & Chạy ứng dụng
 
-This project is a starting point for a Flutter application.
+Mở file `index.html` trực tiếp trên trình duyệt hoặc chạy qua bất kỳ static web server nào:
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+# Ví dụ chạy bằng Python HTTP server
+python3 -m http.server 8080
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+# Hoặc bằng npx serve
+npx serve .
+```
