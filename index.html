@@ -516,7 +516,9 @@
             </div>
             <div class="revenue-summary-grid">
                 <div class="revenue-summary-card"><small>Hôm qua</small><b id="previousDayRevenue">—</b></div>
-                <div class="revenue-summary-card"><small>Khoảng đang xem</small><b id="statFiltered">—</b></div>
+                <div class="revenue-summary-card"><small>Tổng doanh thu (khoảng)</small><b id="statFiltered">—</b></div>
+                <div class="revenue-summary-card"><small>Tiền mặt (khoảng)</small><b id="rangeCashTotal">—</b></div>
+                <div class="revenue-summary-card"><small>Chuyển khoản (khoảng)</small><b id="rangeTransferTotal">—</b></div>
             </div>
             <div class="admin-section">
                 <h3 style="margin:0 0 6px;">⏰ Giờ cao điểm</h3>
@@ -989,14 +991,14 @@ function setRevenuePeriod(period) {
 function filterStats() {
     const fromValue = document.getElementById("dateFrom") && document.getElementById("dateFrom").value;
     const toValue = document.getElementById("dateTo") && document.getElementById("dateTo").value;
-    if (!fromValue || !toValue) return;
+    if (!fromValue || !toValue) return false;
     const fromDate = new Date(`${fromValue}T00:00:00`);
     const toDate = new Date(`${toValue}T23:59:59.999`);
     if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || fromDate > toDate) {
         alert("Vui lòng chọn khoảng ngày hợp lệ.");
-        return;
+        return false;
     }
-    loadRevenueStats(fromDate, toDate);
+    return loadRevenueStats(fromDate, toDate);
 }
 
 async function loadRevenueStats(fromDate, toDate) {
@@ -1012,7 +1014,11 @@ async function loadRevenueStats(fromDate, toDate) {
     queryEnd.setDate(queryEnd.getDate() + 1);
 
     const totalEl = document.getElementById("statFiltered");
+    const cashTotalEl = document.getElementById("rangeCashTotal");
+    const transferTotalEl = document.getElementById("rangeTransferTotal");
     if (totalEl) totalEl.innerText = "Đang tải...";
+    if (cashTotalEl) cashTotalEl.innerText = "Đang tải...";
+    if (transferTotalEl) transferTotalEl.innerText = "Đang tải...";
     revenueRangeLogs = [];
     try {
         // Keep a one-day margin for shifts that crossed midnight; query legacy dates without downloading every old record.
@@ -1034,9 +1040,11 @@ async function loadRevenueStats(fromDate, toDate) {
         }) || (parseStoreDate(activeShift.start) && localDateKey(parseStoreDate(activeShift.start))) : "";
         const todayKey = localDateKey(todayStart);
         const yesterdayKey = localDateKey(yesterday);
+        const rangeStartKey = localDateKey(fromDate);
+        const rangeEndKey = localDateKey(toDate);
         const withinRange = ({ record }) => {
             const key = entryDateKey(record);
-            return key && key >= localDateKey(fromDate) && key <= localDateKey(toDate);
+            return key && key >= rangeStartKey && key <= rangeEndKey;
         };
         const recordsInRange = records.filter(withinRange);
         revenueRangeLogs = recordsInRange.map(({ key, record }) => ({ ...record, id: key }));
@@ -1058,13 +1066,34 @@ async function loadRevenueStats(fromDate, toDate) {
         const revenueInRange = record => {
             if (record.dailyStats && Object.keys(record.dailyStats).length) {
                 return Object.keys(record.dailyStats).reduce((sum, key) =>
-                    key >= localDateKey(fromDate) && key <= localDateKey(toDate)
+                    key >= rangeStartKey && key <= rangeEndKey
                         ? sum + (Number(record.dailyStats[key].revenue) || 0)
                         : sum, 0);
             }
             const key = entryDateKey(record);
-            return key >= localDateKey(fromDate) && key <= localDateKey(toDate)
+            return key >= rangeStartKey && key <= rangeEndKey
                 ? Number(record.revenue) || 0
+                : 0;
+        };
+        const paymentInRange = (record, field) => {
+            const dailyStats = record.dailyStats || {};
+            const dailyKeys = Object.keys(dailyStats);
+            if (dailyKeys.length) {
+                const matchingKeys = dailyKeys.filter(key => key >= rangeStartKey && key <= rangeEndKey);
+                const hasDailyPayment = matchingKeys.some(key =>
+                    dailyStats[key] && dailyStats[key][field] != null);
+                if (hasDailyPayment) {
+                    return matchingKeys.reduce((sum, key) =>
+                        sum + (Number(dailyStats[key] && dailyStats[key][field]) || 0), 0);
+                }
+                const recordKey = entryDateKey(record);
+                return recordKey >= rangeStartKey && recordKey <= rangeEndKey
+                    ? Number(record[field]) || 0
+                    : 0;
+            }
+            const recordKey = entryDateKey(record);
+            return recordKey >= rangeStartKey && recordKey <= rangeEndKey
+                ? Number(record[field]) || 0
                 : 0;
         };
         const sumForDate = key => records.reduce((sum, item) =>
@@ -1074,6 +1103,9 @@ async function loadRevenueStats(fromDate, toDate) {
         if (activeRecord) todayRevenue += revenueForDate(activeRecord, todayKey);
         const rangeRevenue = records.reduce((sum, item) => sum + revenueInRange(item.record), 0) +
             (activeRecord ? revenueInRange(activeRecord) : 0);
+        const rangeRecords = records.map(item => item.record).concat(activeRecord ? [activeRecord] : []);
+        const rangeCash = rangeRecords.reduce((sum, record) => sum + paymentInRange(record, "revenueCash"), 0);
+        const rangeTransfer = rangeRecords.reduce((sum, record) => sum + paymentInRange(record, "revenueTransfer"), 0);
 
         const dailyEl = document.getElementById("dailyRevenueTotal");
         if (dailyEl) dailyEl.innerText = `${todayRevenue.toLocaleString("vi-VN")}đ`;
@@ -1090,6 +1122,8 @@ async function loadRevenueStats(fromDate, toDate) {
             }
         }
         if (totalEl) totalEl.innerText = `${rangeRevenue.toLocaleString("vi-VN")}đ`;
+        if (cashTotalEl) cashTotalEl.innerText = `${rangeCash.toLocaleString("vi-VN")}đ`;
+        if (transferTotalEl) transferTotalEl.innerText = `${rangeTransfer.toLocaleString("vi-VN")}đ`;
         const periodLabel = document.getElementById("revenuePeriodLabel");
         if (periodLabel) periodLabel.innerText = `${fromValueForDisplay(fromDate)} – ${fromValueForDisplay(toDate)}`;
         renderShiftLogs(Object.fromEntries(recordsInRange.map(({ key, record }) => [key, record])));
@@ -1098,6 +1132,8 @@ async function loadRevenueStats(fromDate, toDate) {
         return true;
     } catch (error) {
         if (totalEl) totalEl.innerText = "Không tải được";
+        if (cashTotalEl) cashTotalEl.innerText = "Không tải được";
+        if (transferTotalEl) transferTotalEl.innerText = "Không tải được";
         const peakSummary = document.getElementById("peakHourSummary");
         if (peakSummary) peakSummary.innerText = `Lỗi tải doanh thu: ${error.message}`;
         const list = document.getElementById("shiftLogsList");
@@ -1202,13 +1238,53 @@ function renderShiftLogs(logs) {
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
                 <div><b style="color:var(--dark);">📅 ${escapeStoreText(date)}</b><br>
                     <small style="color:gray;">🕒 ${escapeStoreText(record.start || "")} - ${escapeStoreText(record.end || "")}</small></div>
-                <button onclick="deleteShiftLog('${escapeStoreText(key)}')" style="background:var(--danger);color:white;border:none;border-radius:6px;font-size:10px;padding:4px 8px;font-weight:bold;">XÓA</button>
+                <button onclick="deleteShiftLog('${escapeStoreText(key)}', this)" style="background:var(--danger);color:white;border:none;border-radius:6px;font-size:10px;padding:4px 8px;font-weight:bold;">XÓA</button>
             </div>
             <div style="font-size:12px;margin-top:8px;color:#555;">Tiền mặt: ${cash.toLocaleString("vi-VN")}đ · Chuyển khoản: ${transfer.toLocaleString("vi-VN")}đ</div>
             <div style="font-weight:bold;color:var(--danger);margin-top:5px;">Tổng: ${(Number(record.revenue) || 0).toLocaleString("vi-VN")}đ</div>
             <details style="margin-top:8px;font-size:12px;"><summary style="cursor:pointer;font-weight:bold;">Chi tiết hóa đơn và món (${bills.length})</summary>${details}</details>
         </div>`;
     }).join("");
+}
+
+async function deleteShiftLog(key, button) {
+    if (!key) return;
+    if (getUserRole() !== "Quản lý" && !isAdmin) {
+        alert("Chỉ quản lý mới được xóa ca.");
+        return;
+    }
+    if (!confirm("Xác nhận xóa vĩnh viễn ca này và toàn bộ chi tiết hóa đơn?")) return;
+
+    if (button) {
+        button.disabled = true;
+        button.innerText = "ĐANG XÓA…";
+    }
+
+    try {
+        await storeRef("shift_logs/" + key).remove();
+    } catch (error) {
+        if (button) {
+            button.disabled = false;
+            button.innerText = "XÓA";
+        }
+        console.error("Lỗi xóa ca:", error);
+        alert(`Không thể xóa ca: ${error.message}`);
+        return;
+    }
+
+    const card = button && button.closest(".shift-log-card");
+    if (card) card.remove();
+    const container = document.getElementById("shiftLogsList");
+    if (container && !container.querySelector(".shift-log-card")) {
+        container.innerHTML = '<p style="text-align:center;color:#718096;padding:16px;">Chưa có ca nào được chốt trong khoảng này.</p>';
+    }
+
+    const refreshed = await filterStats();
+    if (refreshed) {
+        alert("Đã xóa ca.");
+    } else {
+        alert("Đã xóa ca nhưng chưa tải lại được doanh thu. Vui lòng bấm Tìm để làm mới.");
+    }
 }
 
 function formatShiftPayment(record) {
